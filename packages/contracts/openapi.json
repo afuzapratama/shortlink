@@ -1,0 +1,6690 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Shortlink Private API",
+    "version": "0.1.0",
+    "description": "Private control plane B09: signed agent release assets, private downloads and configurable agent-facing origin. Installer automation B10."
+  },
+  "servers": [
+    {
+      "url": "https://control.example.com",
+      "description": "Example URL; configurable at install/migration"
+    }
+  ],
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "getLiveness",
+        "summary": "Minimal liveness; never exposes private diagnosis",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Origin/rate-limit protected; creates session only after required MFA",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResult"
+                }
+              }
+            },
+            "headers": {
+              "X-CSRF-Token": {
+                "description": "Session-bound CSRF token, also retrievable via GET /v1/auth/session.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must exactly match the configured CONTROL_ORIGIN; required even for non-browser callers."
+          }
+        ]
+      }
+    },
+    "/v1/auth/mfa/verify": {
+      "post": {
+        "operationId": "verifyMfa",
+        "summary": "Bound short-lived MFA challenge, rate limited",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must exactly match the configured CONTROL_ORIGIN; required even for non-browser callers."
+          }
+        ]
+      }
+    },
+    "/v1/auth/session": {
+      "get": {
+        "operationId": "getSession",
+        "summary": "getSession",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "logout",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must exactly match the configured CONTROL_ORIGIN; required even for non-browser callers."
+          }
+        ]
+      }
+    },
+    "/v1/admin/domains": {
+      "get": {
+        "operationId": "listDomains",
+        "summary": "listDomains",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createDomain",
+        "summary": "createDomain",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Domain"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/domains/{domainId}": {
+      "get": {
+        "operationId": "getDomain",
+        "summary": "getDomain",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Domain"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/domains/{domainId}/verify": {
+      "post": {
+        "operationId": "verifyDomain",
+        "summary": "verifyDomain",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/domains/{domainId}/probe": {
+      "post": {
+        "operationId": "probeDomain",
+        "summary": "probeDomain",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/domains/{domainId}/bootstrap": {
+      "get": {
+        "operationId": "getBootstrap",
+        "summary": "getBootstrap",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bootstrap"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/install-tokens": {
+      "post": {
+        "operationId": "createInstallToken",
+        "summary": "createInstallToken",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallToken"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallTokenRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/agents/{agentId}/revoke": {
+      "post": {
+        "operationId": "revokeAgent",
+        "summary": "revokeAgent",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/agents/enroll": {
+      "post": {
+        "operationId": "enrollAgent",
+        "summary": "One-use install token authorizes request; installation proof enables bounded recovery",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enrollment"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/heartbeat": {
+      "post": {
+        "operationId": "heartbeat",
+        "summary": "heartbeat",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Heartbeat"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/config": {
+      "get": {
+        "operationId": "getAgentConfig",
+        "summary": "getAgentConfig",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged snapshot; no body; lease renewals require a new signed snapshot"
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/links": {
+      "get": {
+        "operationId": "listLinks",
+        "summary": "listLinks",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "domainId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createLink",
+        "summary": "createLink",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Shortlink"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkWrite"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/links/{linkId}": {
+      "patch": {
+        "operationId": "updateLinkDraft",
+        "summary": "updateLinkDraft",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Shortlink"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkDraftWrite"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Save destination draft with expectedRevision. Published destination/URL/analytics remain unchanged until publish. Reject changing the domain or slug of a previously published link."
+      },
+      "get": {
+        "operationId": "getLink",
+        "summary": "Get the current link including a pending destination draft",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Shortlink"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/links/{linkId}/publish": {
+      "post": {
+        "operationId": "publishLink",
+        "summary": "publishLink",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Promote pending destination to a new published revision. The link ID, hostname, slug and accumulated analytics remain unchanged. Local agents acknowledge the revision asynchronously."
+      }
+    },
+    "/v1/admin/rule-sets": {
+      "get": {
+        "operationId": "listRuleSets",
+        "summary": "listRuleSets",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSetPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createRuleSet",
+        "summary": "createRuleSet",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSet"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleSetCreate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/rule-sets/{ruleSetId}": {
+      "patch": {
+        "operationId": "updateRuleSetDraft",
+        "summary": "updateRuleSetDraft",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSet"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleSetWrite"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ruleSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "get": {
+        "operationId": "getRuleSet",
+        "summary": "getRuleSet",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSet"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ruleSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/rule-sets/{ruleSetId}/publish": {
+      "post": {
+        "operationId": "publishRuleSet",
+        "summary": "publishRuleSet",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ruleSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/rule-sets/{ruleSetId}/rollback": {
+      "post": {
+        "operationId": "rollbackRuleSet",
+        "summary": "rollbackRuleSet",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ruleSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/rules/simulate": {
+      "post": {
+        "operationId": "simulateRules",
+        "summary": "simulateRules",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulationRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Resolve effective rules for linkId. Optional ruleSetId previews its draft; expectedRevision required with that draft. Other scopes keep their published rules."
+      }
+    },
+    "/v1/admin/events": {
+      "get": {
+        "operationId": "listEvents",
+        "summary": "listEvents",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "redirect",
+                "fallback",
+                "block"
+              ]
+            }
+          },
+          {
+            "name": "domainId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          },
+          {
+            "name": "os",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/OperatingSystem"
+            }
+          },
+          {
+            "name": "browser",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/BrowserFamily"
+            }
+          },
+          {
+            "name": "device",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "desktop",
+                "tablet",
+                "unknown"
+              ]
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "linkId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "Owner-only raw events within raw retention, minute-aligned explicit UTC range [from,to). Stable descending receivedAt/id pagination anchored to largest ingest ID; cursor bound to all filters."
+      }
+    },
+    "/v1/events/batch": {
+      "post": {
+        "operationId": "ingestEvents",
+        "summary": "CLI Go agent only; durable atomic commit, agent/event ID dedup, 48-hour window and 1 MiB limit",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchAccepted"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventBatch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/decisions": {
+      "post": {
+        "operationId": "makeDecision",
+        "summary": "API mode only; visitor IP is distinct from socket IP. Agent cannot override authoritative geo/bot results.",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            },
+            "headers": {
+              "X-Decision-Replayed": {
+                "schema": {
+                  "type": "boolean"
+                },
+                "description": "true on idempotent replay; no new event or visitor-rate charge"
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          }
+        },
+        "description": "Bound to enrolled php_zip/API domain. 16 KiB body, endpoint context budget 2000 ms, 8 in-flight evaluations per process. GeoLite unavailable/expired or SQL failure returns 503 with no destination; unknown country from a valid database is explicit unknown. Optional risk feed failure stays unknown under published rule policy. Snapshot/compiler and signed GeoLite/feed readers are cached with bounded refresh; no network lookup per click. Central decisions are counted, browser execution is not acknowledged. Adapter default: connect 1s, total 3s, verify TLS, never follow API redirects, retry only same immutable request within remaining budget, otherwise 503 with no Location. No offline redirect bypass/fallback configured by B15."
+      }
+    },
+    "/v1/assets/geoip/manifest": {
+      "get": {
+        "operationId": "getGeoManifest",
+        "summary": "getGeoManifest",
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoManifest"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Manifest unchanged; no body"
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/assets/feeds/manifest": {
+      "get": {
+        "operationId": "getFeedManifest",
+        "summary": "Signed complete risk bundle, <=8 MiB; independent of routing revision, ETag + source freshness",
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedRiskFeed"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Manifest unchanged; no body"
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/assets/agent/manifest": {
+      "get": {
+        "operationId": "getAgentManifest",
+        "summary": "getAgentManifest",
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentManifest"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Manifest unchanged; no body"
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/assets/geoip/releases/{release}/{edition}": {
+      "get": {
+        "operationId": "downloadGeo",
+        "summary": "downloadGeo",
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authenticated file stream; edition/artifact allowlisted; no arbitrary filesystem paths. ETag and Content-Length included.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "release",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "edition",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/assets/feeds/releases/{version}": {
+      "get": {
+        "operationId": "downloadFeed",
+        "summary": "downloadFeed",
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authenticated file stream; edition/artifact allowlisted; no arbitrary filesystem paths. ETag and Content-Length included.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/assets/agent/releases/{version}/{artifact}": {
+      "get": {
+        "operationId": "downloadArtifact",
+        "summary": "downloadArtifact",
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authenticated file stream; edition/artifact allowlisted; no arbitrary filesystem paths. ETag and Content-Length included.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifact",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Minimal database/migration/owner readiness; not domain agent readiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ack"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/domains/{domainId}/verification": {
+      "post": {
+        "operationId": "createVerificationChallenge",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationChallenge"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/domains/{domainId}/agent": {
+      "get": {
+        "operationId": "getDomainAgent",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSummaryResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/domains/{domainId}/audit": {
+      "get": {
+        "operationId": "getDomainAudit",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAudit"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/system/geoip": {
+      "get": {
+        "operationId": "getGeoStatus",
+        "summary": "GeoLite release and reported active agent versions",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/rule-sets/{ruleSetId}/history": {
+      "get": {
+        "operationId": "getRuleSetHistory",
+        "summary": "getRuleSetHistory",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishHistory"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ruleSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/links/{linkId}/history": {
+      "get": {
+        "operationId": "getLinkHistory",
+        "summary": "getLinkHistory",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishHistory"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/links/{linkId}/rollback": {
+      "post": {
+        "operationId": "rollbackLink",
+        "summary": "rollbackLink",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishResult"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/countries": {
+      "get": {
+        "operationId": "listCountries",
+        "summary": "listCountries",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/visitors/detect": {
+      "post": {
+        "operationId": "detectVisitor",
+        "summary": "detectVisitor",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorSignals"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitorDetectRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for cookie-authenticated mutation; session alone is insufficient."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/agents/install-context": {
+      "post": {
+        "operationId": "resolveInstallContext",
+        "summary": "Resolve CLI token binding without consuming it or issuing a credential",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 43,
+                    "maxLength": 43
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-bound installation ID and bootstrap; token possession required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "installationId",
+                    "bootstrap"
+                  ],
+                  "properties": {
+                    "installationId": {
+                      "type": "string"
+                    },
+                    "bootstrap": {
+                      "$ref": "#/components/schemas/Bootstrap"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/domains/{domainId}/installation": {
+      "get": {
+        "operationId": "getInstallationStatus",
+        "summary": "Live installation prerequisites and last public probe",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "domainId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current domain, agent metadata, checks and optional previous probe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallationStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/system/events": {
+      "get": {
+        "operationId": "getEventHealth",
+        "summary": "Owner-only worker lag and last agent heartbeat queue reports",
+        "security": [
+          {
+            "OwnerSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventHealth"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/domains/{domainId}/protection": {
+      "parameters": [
+        {
+          "name": "domainId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getDomainProtection",
+        "summary": "getDomainProtection",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectionView"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "publishDomainProtection",
+        "summary": "publishDomainProtection",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectionStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProtectionUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/system/feeds": {
+      "get": {
+        "operationId": "getRiskFeedStatus",
+        "summary": "getRiskFeedStatus",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskFeedStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/analytics": {
+      "get": {
+        "operationId": "trafficAnalytics",
+        "summary": "Processed traffic totals and hourly display from minute aggregates",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrafficAnalytics"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "redirect",
+                "fallback",
+                "block"
+              ]
+            }
+          },
+          {
+            "name": "domainId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          },
+          {
+            "name": "os",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/OperatingSystem"
+            }
+          },
+          {
+            "name": "browser",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/BrowserFamily"
+            }
+          },
+          {
+            "name": "device",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "desktop",
+                "tablet",
+                "unknown"
+              ]
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "linkId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "Minute-aligned range within aggregate retention. Known bot count is a subset of actual actions and collected starting B14; older aggregates are not backfilled. Health watermark is last worker transaction, not event completeness."
+      }
+    },
+    "/v1/admin/events/export": {
+      "post": {
+        "operationId": "exportTraffic",
+        "summary": "Owner + Origin/CSRF protected CSV export, first 1000 matching events",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV, maximum 1000 rows; truncation explicit",
+            "headers": {
+              "X-Export-Truncated": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "redirect",
+                "fallback",
+                "block"
+              ]
+            }
+          },
+          {
+            "name": "domainId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true
+          },
+          {
+            "name": "os",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/OperatingSystem"
+            }
+          },
+          {
+            "name": "browser",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/BrowserFamily"
+            }
+          },
+          {
+            "name": "device",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "desktop",
+                "tablet",
+                "unknown"
+              ]
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "linkId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Bounded synchronous export, no job or public download URL. Formula-like cells escaped. X-Export-Truncated true means narrow filters to obtain remaining records."
+      }
+    },
+    "/v1/agents/probe": {
+      "post": {
+        "operationId": "probeAPIAdapter",
+        "summary": "Authenticated API adapter probe; no click event and no CLI heartbeat",
+        "description": "16 KiB, context budget 2000 ms; domain/hostname bound. Central API/GeoLite and served revision confirmed, not public readiness. Returns raw ProbeState JSON and X-Shortlink-Proof HMAC response using existing purpose-separated ProbeMAC. PHP public handler first authenticates nonce request locally, then forwards nonce to this endpoint and returns response bytes/proof unchanged. Owner public HTTPS probe still pins public DNS/TLS, validates proof and rechecks revision/agent before readiness commit. Probe must not be exposed as a general unauthenticated credential-forwarding endpoint. ZIP handler implementation B16.",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdapterProbeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Central API ready; does not itself mark domain ready",
+            "headers": {
+              "X-Shortlink-Proof": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdapterProbeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/php/manifest": {
+      "get": {
+        "operationId": "getPHPManifest",
+        "summary": "Signed immutable PHP ZIP manifest for owners",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PHPManifest"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assets/php/releases/{version}/{artifact}": {
+      "get": {
+        "operationId": "downloadPHPArtifact",
+        "summary": "Owner-only checksum-verified PHP ZIP or tutorial",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authenticated file stream; edition/artifact allowlisted; no arbitrary filesystem paths. ETag and Content-Length included.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifact",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "agent-php.zip",
+                "INSTALL.md"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/security": {
+      "get": {
+        "operationId": "getOwnerSecurity",
+        "summary": "getOwnerSecurity",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/v1/admin/security/mfa/setup": {
+      "post": {
+        "operationId": "ownerMfaSetup",
+        "summary": "ownerMfaSetup",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/security/mfa/confirm": {
+      "post": {
+        "operationId": "ownerMfaConfirm",
+        "summary": "ownerMfaConfirm",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/security/mfa/disable": {
+      "post": {
+        "operationId": "ownerMfaDisable",
+        "summary": "ownerMfaDisable",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/security/mfa/recovery": {
+      "post": {
+        "operationId": "ownerMfaRecovery",
+        "summary": "ownerMfaRecovery",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/control/agents": {
+      "get": {
+        "operationId": "getControlAgentStates",
+        "summary": "getControlAgentStates",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/v1/admin/control/rotations": {
+      "post": {
+        "operationId": "stageAgentRotation",
+        "summary": "stageAgentRotation",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlOperation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/control/migrations": {
+      "post": {
+        "operationId": "stageControlMigration",
+        "summary": "stageControlMigration",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedControlMigration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlOperation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/control": {
+      "get": {
+        "operationId": "getPrivateAgentControl",
+        "summary": "getPrivateAgentControl",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/v1/agents/control/ack": {
+      "post": {
+        "operationId": "ackPrivateAgentControl",
+        "summary": "ackPrivateAgentControl",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlAck"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/control/identity": {
+      "post": {
+        "operationId": "proveControlIdentity",
+        "summary": "Public signed nonce proof before bearer transmission",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedControlMigration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlIdentityInput"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "AdminSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "shortlink_session",
+        "description": "HttpOnly/Secure/SameSite session plus CSRF token on mutations."
+      },
+      "AgentCredential": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Per-agent credential bound to approved domains and API capabilities."
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "requestId"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Capabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "localGeo": {
+            "type": "boolean"
+          },
+          "persistentQueue": {
+            "type": "boolean"
+          },
+          "challenge": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "localGeo",
+          "persistentQueue",
+          "challenge"
+        ]
+      },
+      "Domain": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "local",
+              "api"
+            ]
+          },
+          "readiness": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "verification_pending",
+              "installation_pending",
+              "preparing",
+              "ready",
+              "attention",
+              "revoked"
+            ]
+          },
+          "connection": {
+            "type": "string",
+            "enum": [
+              "online",
+              "idle",
+              "offline",
+              "unknown"
+            ]
+          },
+          "desiredRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "appliedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          }
+        },
+        "required": [
+          "id",
+          "hostname",
+          "mode",
+          "readiness",
+          "connection",
+          "desiredRevision",
+          "appliedRevision",
+          "lastSeenAt",
+          "capabilities"
+        ]
+      },
+      "DomainCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "hostname": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 253,
+            "description": "Normalized hostname only; reject URL, port, path, wildcard, local or reserved targets."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "local",
+              "api"
+            ]
+          }
+        },
+        "required": [
+          "hostname",
+          "mode"
+        ]
+      },
+      "DomainPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Domain"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "Shortlink": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "domainId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,80}$"
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optimistic concurrency version of the link resource; increments on draft updates. Separate from the domain snapshot revision."
+          },
+          "clicks": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Published redirect events, not confirmed destination arrivals."
+          },
+          "draftDestination": {
+            "type": "string",
+            "format": "uri",
+            "description": "Optional pending destination. Published destination remains unchanged until publish; absent when no draft exists."
+          }
+        },
+        "required": [
+          "id",
+          "domainId",
+          "slug",
+          "destination",
+          "state",
+          "revision",
+          "clicks"
+        ]
+      },
+      "LinkWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "domainId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,80}$"
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTP(S) only, no embedded credentials or redirect loop."
+          }
+        },
+        "required": [
+          "domainId",
+          "destination"
+        ]
+      },
+      "LinkPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Shortlink"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "PublishRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ]
+      },
+      "PublishResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "New resource revision. Each affected domain has its own desired config revision in domainRevisions."
+          },
+          "pendingAgentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "domainRevisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainRevision"
+            }
+          }
+        },
+        "required": [
+          "revision",
+          "pendingAgentIds",
+          "publishedAt",
+          "domainRevisions"
+        ]
+      },
+      "Rule": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO country code, unknown or *"
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "desktop",
+              "tablet",
+              "unknown",
+              "*"
+            ]
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "*",
+              "known_bot",
+              "suspected_automation",
+              "tor_exit",
+              "reputation_flag",
+              "rate_limited"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "redirect",
+              "fallback",
+              "block"
+            ]
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "destinationSource": {
+            "type": "string",
+            "enum": [
+              "link",
+              "custom"
+            ],
+            "default": "link",
+            "description": "link resolves the selected shortlink published destination; custom requires destination and is edited independently."
+          },
+          "mandatory": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only permitted for global block rules; matching enabled mandatory blocks precede routing regardless of scope priority."
+          },
+          "os": {
+            "type": "string",
+            "enum": [
+              "*",
+              "ios",
+              "android",
+              "windows",
+              "macos",
+              "linux",
+              "chromeos",
+              "other",
+              "unknown"
+            ],
+            "default": "*",
+            "description": "AND condition; * permits any value including unknown."
+          },
+          "browser": {
+            "type": "string",
+            "enum": [
+              "*",
+              "chrome",
+              "safari",
+              "firefox",
+              "edge",
+              "samsung_internet",
+              "opera",
+              "other",
+              "unknown"
+            ],
+            "default": "*",
+            "description": "AND condition; * permits any value including unknown."
+          },
+          "asn": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "description": "Optional ASN condition; unavailable ASN never matches."
+          },
+          "botCategory": {
+            "type": "string",
+            "enum": [
+              "*",
+              "search",
+              "preview",
+              "automation",
+              "unknown"
+            ],
+            "description": "Optional AND condition; non-wildcard requires known_bot, category is a UA claim, not identity verification."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "priority",
+          "country",
+          "device",
+          "risk",
+          "action",
+          "enabled",
+          "os",
+          "browser"
+        ]
+      },
+      "RuleSet": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "domain",
+              "link"
+            ]
+          },
+          "scopeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "maxItems": 100
+          },
+          "publishedRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "scopeId",
+          "revision",
+          "state",
+          "rules",
+          "publishedRevision"
+        ]
+      },
+      "RuleSetWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "rules"
+        ]
+      },
+      "RuleSetPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleSet"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "RollbackRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "targetRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "targetRevision",
+          "expectedRevision"
+        ]
+      },
+      "InstallTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "domainId": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "cli",
+              "php_zip"
+            ]
+          }
+        },
+        "required": [
+          "domainId",
+          "method"
+        ]
+      },
+      "InstallToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Shown once; never include in URL, logs or shared artifacts."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "domainId": {
+            "type": "string"
+          },
+          "controlPlaneUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "installationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expiresAt",
+          "domainId",
+          "controlPlaneUrl",
+          "installationId"
+        ]
+      },
+      "Bootstrap": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "domainId": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "controlPlaneUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "fallbackUrls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "manifestVerificationKey": {
+            "type": "string"
+          },
+          "artifactVersion": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "cli",
+              "php_zip"
+            ]
+          },
+          "publicUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "trustedProxies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "developmentLoopback": {
+            "type": "boolean",
+            "description": "false for production PHP bootstrap; loopback development is an explicit operator change"
+          }
+        },
+        "required": [
+          "domainId",
+          "hostname",
+          "controlPlaneUrl",
+          "fallbackUrls",
+          "manifestVerificationKey",
+          "artifactVersion",
+          "method"
+        ]
+      },
+      "EnrollRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "installationId": {
+            "type": "string"
+          },
+          "installationProof": {
+            "type": "string",
+            "minLength": 43,
+            "description": "Canonical base64url of 32 random bytes generated client-side, kept private for bounded recovery.",
+            "maxLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "cli",
+              "php_zip"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "token",
+          "installationId",
+          "installationProof",
+          "hostname",
+          "method",
+          "version"
+        ]
+      },
+      "Enrollment": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "credential": {
+            "type": "string",
+            "description": "Returned only on enroll or proven bounded recovery, stored privately."
+          },
+          "configUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "bootstrap": {
+            "$ref": "#/components/schemas/Bootstrap"
+          }
+        },
+        "required": [
+          "agentId",
+          "credential",
+          "configUrl",
+          "capabilities",
+          "bootstrap"
+        ]
+      },
+      "Signals": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ip": {
+            "type": "string",
+            "description": "Canonical IPv4/IPv6 determined by trusted proxy policy, not adapter socket IP.",
+            "maxLength": 45
+          },
+          "userAgent": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "ip",
+          "userAgent"
+        ],
+        "description": "Trusted PHP adapter forwards canonical visitor IP and UA, distinct from API socket IP. Country/device/OS/browser/ASN/risk/clientHints overrides are rejected. Full IP and raw UA remain transient; keyed request digest is persisted."
+      },
+      "DecisionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43,
+            "description": "32 random bytes, unpadded base64url; keep ID/timestamp/body unchanged on retry."
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "domainId": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,80}$",
+            "maxLength": 80
+          },
+          "signals": {
+            "$ref": "#/components/schemas/Signals"
+          }
+        },
+        "required": [
+          "eventId",
+          "occurredAt",
+          "domainId",
+          "slug",
+          "signals"
+        ],
+        "description": "PHP/API agent only. Same agent/event ID and canonical request returns immutable original decision within 48-hour occurredAt window, even after publication. Changed payload is 409. Durable response and classified source=php event commit together before 200."
+      },
+      "Decision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "redirect",
+              "block",
+              "challenge",
+              "fallback"
+            ]
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "ruleId": {
+            "type": "string",
+            "nullable": true
+          },
+          "configRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "geoRelease": {
+            "type": "string",
+            "nullable": true
+          },
+          "feedVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "risk": {
+            "$ref": "#/components/schemas/RiskObservation"
+          }
+        },
+        "required": [
+          "eventId",
+          "action",
+          "reasonCode",
+          "ruleId",
+          "configRevision",
+          "geoRelease",
+          "feedVersion",
+          "destination"
+        ]
+      },
+      "SimulationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ruleSetId": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "country": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "desktop",
+              "tablet",
+              "unknown"
+            ]
+          },
+          "knownBot": {
+            "type": "boolean"
+          },
+          "linkId": {
+            "type": "string",
+            "description": "Selected link resolves domain plus effective global/domain/link rules."
+          },
+          "os": {
+            "$ref": "#/components/schemas/OperatingSystem"
+          },
+          "browser": {
+            "$ref": "#/components/schemas/BrowserFamily"
+          },
+          "asn": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "nullable": true
+          },
+          "suspectedAutomation": {
+            "type": "boolean"
+          },
+          "torExit": {
+            "type": "boolean"
+          },
+          "reputationFlag": {
+            "type": "boolean"
+          },
+          "rateLimited": {
+            "type": "boolean"
+          },
+          "botCategory": {
+            "type": "string",
+            "enum": [
+              "search",
+              "preview",
+              "automation",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "linkId",
+          "country",
+          "device",
+          "knownBot",
+          "os",
+          "browser"
+        ],
+        "description": "Published rules by default. ruleSetId requires expectedRevision and substitutes that saved draft only. knownBot is a synthetic signal; enabled bot rules cannot publish until B13."
+      },
+      "TrafficEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "redirect",
+              "block",
+              "challenge",
+              "fallback"
+            ]
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "ruleId": {
+            "type": "string",
+            "nullable": true
+          },
+          "configRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "geoRelease": {
+            "type": "string",
+            "nullable": true
+          },
+          "feedVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "domainId": {
+            "type": "string"
+          },
+          "linkId": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "desktop",
+              "tablet",
+              "unknown"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "go",
+              "php"
+            ]
+          },
+          "os": {
+            "$ref": "#/components/schemas/OperatingSystem"
+          },
+          "browser": {
+            "$ref": "#/components/schemas/BrowserFamily"
+          },
+          "osVersion": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128,
+            "description": "Optional detected value, null/absent if unavailable; never invent exact hardware models."
+          },
+          "browserVersion": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128,
+            "description": "Optional detected value, null/absent if unavailable; never invent exact hardware models."
+          },
+          "deviceBrand": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128,
+            "description": "Optional detected value, null/absent if unavailable; never invent exact hardware models."
+          },
+          "deviceModel": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128,
+            "description": "Optional detected value, null/absent if unavailable; never invent exact hardware models."
+          },
+          "risk": {
+            "$ref": "#/components/schemas/RiskObservation"
+          }
+        },
+        "required": [
+          "eventId",
+          "action",
+          "reasonCode",
+          "ruleId",
+          "configRevision",
+          "geoRelease",
+          "feedVersion",
+          "destination",
+          "occurredAt",
+          "domainId",
+          "linkId",
+          "country",
+          "device",
+          "source",
+          "os",
+          "browser"
+        ]
+      },
+      "EventPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrafficRecord"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "watermark": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "watermark"
+        ]
+      },
+      "EventBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/TrafficEvent"
+            }
+          }
+        },
+        "required": [
+          "events"
+        ]
+      },
+      "BatchAccepted": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duplicates": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "duplicates",
+          "requestId"
+        ]
+      },
+      "Heartbeat": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "appliedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "geoRelease": {
+            "type": "string",
+            "nullable": true
+          },
+          "feedVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "queueDepth": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queueBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "droppedEvents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bufferedEvents": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Non-durable memory buffer and writer batch; optional for older agents."
+          },
+          "queueWriteErrors": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Queue write failures; optional for older agents."
+          },
+          "protectionVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "1 means B13 parser/feed/rate/mode support; optional for old agents."
+          }
+        },
+        "required": [
+          "version",
+          "appliedRevision",
+          "geoRelease",
+          "feedVersion",
+          "queueDepth",
+          "queueBytes",
+          "droppedEvents"
+        ]
+      },
+      "Snapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "leaseExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Shortlink"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScopedRule"
+            }
+          },
+          "geoRelease": {
+            "type": "string",
+            "nullable": true
+          },
+          "feedVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "signature": {
+            "type": "string"
+          },
+          "signedPayload": {
+            "type": "string",
+            "description": "Base64url (unpadded) exact JSON bytes signed with Ed25519. Verify these bytes using the pinned bootstrap public key, then evaluate decoded fields; envelope fields are not independently authenticated."
+          },
+          "protection": {
+            "$ref": "#/components/schemas/ProtectionSettings"
+          }
+        },
+        "required": [
+          "revision",
+          "leaseExpiresAt",
+          "domain",
+          "links",
+          "rules",
+          "geoRelease",
+          "feedVersion",
+          "signature",
+          "signedPayload"
+        ]
+      },
+      "GeoFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "type": "string",
+            "enum": [
+              "GeoLite2-Country",
+              "GeoLite2-City",
+              "GeoLite2-ASN"
+            ]
+          },
+          "buildEpoch": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "format": "uri-reference",
+            "description": "Signed relative path on configured control origin; arbitrary origins are rejected."
+          }
+        },
+        "required": [
+          "edition",
+          "buildEpoch",
+          "size",
+          "sha256",
+          "downloadUrl"
+        ]
+      },
+      "GeoManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeoFile"
+            }
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "licenseUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "signedPayload": {
+            "type": "string",
+            "description": "Base64url original JSON payload. Verify Ed25519 over decoded bytes; use only decoded signed payload."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "releaseId",
+          "publishedAt",
+          "files",
+          "attribution",
+          "licenseUrl",
+          "signature",
+          "signedPayload",
+          "expiresAt"
+        ]
+      },
+      "FeedManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "signature": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "publishedAt",
+          "sources",
+          "size",
+          "sha256",
+          "downloadUrl",
+          "signature"
+        ]
+      },
+      "Artifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "description": "Allowlisted path relative to the configured control origin."
+          },
+          "imageDigest": {
+            "type": "string",
+            "nullable": true
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 536870912
+          },
+          "imageId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Observed Docker image ID; containerd-backed engines may report the OCI manifest ID."
+          },
+          "imageReference": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional registry/repository@sha256 manifest digest. Registry auth is provisioned separately."
+          },
+          "imageConfigDigest": {
+            "type": "string",
+            "nullable": true,
+            "description": "SHA256 of the image archive config. Loaded image IDs may use this on engines with a classic image store."
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "platform",
+          "downloadUrl",
+          "imageDigest",
+          "sha256",
+          "size",
+          "imageId",
+          "imageReference",
+          "imageConfigDigest"
+        ]
+      },
+      "AgentManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            }
+          },
+          "signature": {
+            "type": "string"
+          },
+          "signedPayload": {
+            "type": "string",
+            "description": "Exact JSON bytes base64url signed with Ed25519; only decoded signed fields are authoritative."
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "installerReady": {
+            "type": "boolean",
+            "description": "False in B09; automatic installation is B10."
+          }
+        },
+        "required": [
+          "version",
+          "artifacts",
+          "signature",
+          "signedPayload",
+          "publishedAt",
+          "installerReady"
+        ]
+      },
+      "ProbeResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readiness": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "verification_pending",
+              "installation_pending",
+              "preparing",
+              "ready",
+              "attention",
+              "revoked"
+            ]
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "not_applicable"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "status",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "checkedAt",
+          "readiness",
+          "checks"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "B03 owner passwords are 12\u2013256 UTF-8 bytes; server validates byte length."
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "LoginResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "authenticated",
+              "mfa_required"
+            ]
+          },
+          "challengeId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "status",
+          "challengeId"
+        ]
+      },
+      "MfaRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "challengeId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "TOTP or unused recovery code"
+          }
+        },
+        "required": [
+          "challengeId",
+          "code"
+        ]
+      },
+      "Session": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner"
+            ]
+          },
+          "mfaEnabled": {
+            "type": "boolean"
+          },
+          "csrfToken": {
+            "type": "string",
+            "description": "Session-bound token returned only to the authenticated admin; send in X-CSRF-Token for mutations."
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "role",
+          "mfaEnabled",
+          "csrfToken"
+        ]
+      },
+      "Ack": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "LinkDraftWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "domainId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,80}$"
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTP(S) only, no embedded credentials or redirect loop."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Required by PATCH; omitted on initial create."
+          }
+        },
+        "required": [
+          "domainId",
+          "destination",
+          "expectedRevision"
+        ]
+      },
+      "OperatingSystem": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android",
+          "windows",
+          "macos",
+          "linux",
+          "chromeos",
+          "other",
+          "unknown"
+        ],
+        "description": "Normalized OS family. ios includes positively identified iOS/iPadOS; other is recognized unsupported OS, unknown is missing/ambiguous."
+      },
+      "BrowserFamily": {
+        "type": "string",
+        "enum": [
+          "chrome",
+          "safari",
+          "firefox",
+          "edge",
+          "samsung_internet",
+          "opera",
+          "other",
+          "unknown"
+        ],
+        "description": "Browser product family, not rendering engine; independent of OS."
+      },
+      "VerificationChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "expiresAt"
+        ]
+      },
+      "AgentSummaryResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "cli",
+                  "php_zip"
+                ]
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "method",
+              "version"
+            ]
+          }
+        },
+        "required": [
+          "agent"
+        ]
+      },
+      "DomainAudit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "actorId": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string"
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "actorId",
+                "action",
+                "occurredAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "GeoStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "manifest",
+          "agents"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_configured",
+              "awaiting_database",
+              "ready",
+              "expired",
+              "invalid"
+            ]
+          },
+          "manifest": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GeoManifest"
+              }
+            ],
+            "nullable": true
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "domainId",
+                "hostname",
+                "geoRelease",
+                "lastSeenAt"
+              ],
+              "properties": {
+                "domainId": {
+                  "type": "string"
+                },
+                "hostname": {
+                  "type": "string"
+                },
+                "geoRelease": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "lastSeenAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "RuleSetCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "domain",
+              "link"
+            ]
+          },
+          "scopeId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "scope",
+          "scopeId"
+        ]
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "revision",
+          "publishedAt"
+        ]
+      },
+      "PublishHistory": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryEntry"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CountryList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 2
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "VisitorDetectRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "userAgent": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "userAgent"
+        ]
+      },
+      "VisitorSignals": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "desktop",
+              "tablet",
+              "unknown"
+            ]
+          },
+          "os": {
+            "$ref": "#/components/schemas/OperatingSystem"
+          },
+          "browser": {
+            "$ref": "#/components/schemas/BrowserFamily"
+          },
+          "knownBot": {
+            "type": "boolean"
+          },
+          "asn": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "nullable": true
+          },
+          "osVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "browserVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceBrand": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceModel": {
+            "type": "string",
+            "nullable": true
+          },
+          "suspectedAutomation": {
+            "type": "boolean"
+          },
+          "torExit": {
+            "type": "boolean"
+          },
+          "reputationFlag": {
+            "type": "boolean"
+          },
+          "rateLimited": {
+            "type": "boolean"
+          },
+          "botCategory": {
+            "type": "string"
+          },
+          "feedStatus": {
+            "type": "string"
+          },
+          "torStatus": {
+            "type": "string"
+          },
+          "reputationStatus": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "country",
+          "device",
+          "os",
+          "browser",
+          "knownBot",
+          "asn",
+          "osVersion",
+          "browserVersion",
+          "deviceBrand",
+          "deviceModel"
+        ]
+      },
+      "DomainRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "domainId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "domainId",
+          "revision"
+        ]
+      },
+      "ScopedRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO country code, unknown or *"
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "desktop",
+              "tablet",
+              "unknown",
+              "*"
+            ]
+          },
+          "risk": {
+            "type": "string",
+            "enum": [
+              "*",
+              "known_bot",
+              "suspected_automation",
+              "tor_exit",
+              "reputation_flag",
+              "rate_limited"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "redirect",
+              "fallback",
+              "block"
+            ]
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "destinationSource": {
+            "type": "string",
+            "enum": [
+              "link",
+              "custom"
+            ],
+            "default": "link",
+            "description": "link resolves the selected shortlink published destination; custom requires destination and is edited independently."
+          },
+          "mandatory": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only permitted for global block rules; matching enabled mandatory blocks precede routing regardless of scope priority."
+          },
+          "os": {
+            "type": "string",
+            "enum": [
+              "*",
+              "ios",
+              "android",
+              "windows",
+              "macos",
+              "linux",
+              "chromeos",
+              "other",
+              "unknown"
+            ],
+            "default": "*",
+            "description": "AND condition; * permits any value including unknown."
+          },
+          "browser": {
+            "type": "string",
+            "enum": [
+              "*",
+              "chrome",
+              "safari",
+              "firefox",
+              "edge",
+              "samsung_internet",
+              "opera",
+              "other",
+              "unknown"
+            ],
+            "default": "*",
+            "description": "AND condition; * permits any value including unknown."
+          },
+          "asn": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "description": "Optional ASN condition; unavailable ASN never matches."
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "global",
+              "domain",
+              "link"
+            ]
+          },
+          "scopeId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "priority",
+          "country",
+          "device",
+          "risk",
+          "action",
+          "enabled",
+          "os",
+          "browser",
+          "scope",
+          "scopeId"
+        ]
+      },
+      "ReadinessCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "status",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "not_applicable"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "InstallationStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "domain",
+          "agentId",
+          "version",
+          "geoRelease",
+          "checkedAt",
+          "checks",
+          "lastProbe"
+        ],
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "geoRelease": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReadinessCheck"
+            }
+          },
+          "lastProbe": {
+            "type": "object",
+            "nullable": true,
+            "required": [
+              "checkedAt",
+              "checks"
+            ],
+            "properties": {
+              "checkedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReadinessCheck"
+                }
+              }
+            }
+          }
+        }
+      },
+      "EventHealth": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "pendingEvents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queueDepth": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queueBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "droppedEvents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bufferedEvents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queueWriteErrors": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "oldestPendingReceivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "watermark": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "activeAgents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "staleAgents": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "pendingEvents",
+          "queueDepth",
+          "queueBytes",
+          "droppedEvents",
+          "bufferedEvents",
+          "queueWriteErrors",
+          "oldestPendingReceivedAt",
+          "watermark",
+          "activeAgents",
+          "staleAgents"
+        ],
+        "description": "Pending/worker watermark for all events. Queue and active/stale counts cover CLI agents only, not idle PHP adapters. Watermark is last worker transaction, not completeness."
+      },
+      "ProtectionSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "observe",
+              "enforce"
+            ]
+          },
+          "ratePerSecond": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "burst": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
+        },
+        "required": [
+          "mode",
+          "ratePerSecond",
+          "burst"
+        ]
+      },
+      "ProtectionStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "$ref": "#/components/schemas/ProtectionSettings"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "appliedRevision": {
+            "type": "integer",
+            "nullable": true
+          },
+          "supported": {
+            "type": "boolean"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "feedVersion": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "settings",
+          "revision",
+          "appliedRevision",
+          "supported",
+          "lastSeenAt",
+          "feedVersion"
+        ]
+      },
+      "RiskObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "observe",
+              "enforce"
+            ]
+          },
+          "signals": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "known_bot",
+                "suspected_automation",
+                "tor_exit",
+                "reputation_flag",
+                "rate_limited"
+              ]
+            }
+          },
+          "botCategory": {
+            "type": "string",
+            "enum": [
+              "search",
+              "preview",
+              "automation",
+              "unknown"
+            ]
+          },
+          "feedStatus": {
+            "type": "string",
+            "enum": [
+              "fresh",
+              "unavailable",
+              "expired",
+              "stale",
+              "unconfigured",
+              "synthetic"
+            ]
+          },
+          "torStatus": {
+            "type": "string",
+            "enum": [
+              "fresh",
+              "unavailable",
+              "expired",
+              "stale",
+              "unconfigured",
+              "synthetic"
+            ]
+          },
+          "reputationStatus": {
+            "type": "string",
+            "enum": [
+              "fresh",
+              "unavailable",
+              "expired",
+              "stale",
+              "unconfigured",
+              "synthetic"
+            ]
+          },
+          "candidateAction": {
+            "type": "string",
+            "enum": [
+              "redirect",
+              "fallback",
+              "block"
+            ]
+          },
+          "candidateRuleId": {
+            "type": "string",
+            "maxLength": 128,
+            "nullable": true
+          },
+          "candidateReasonCode": {
+            "type": "string",
+            "enum": [
+              "link_destination",
+              "rule_redirect",
+              "rule_fallback",
+              "rule_block"
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "signals",
+          "botCategory",
+          "feedStatus",
+          "torStatus",
+          "reputationStatus",
+          "candidateAction",
+          "candidateRuleId",
+          "candidateReasonCode"
+        ]
+      },
+      "RiskSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "signal": {
+            "type": "string",
+            "enum": [
+              "known_bot",
+              "suspected_automation",
+              "tor_exit",
+              "reputation_flag",
+              "rate_limited"
+            ]
+          },
+          "mode": {
+            "type": "string"
+          },
+          "candidateAction": {
+            "type": "string"
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "ruleId": {
+            "type": "string"
+          },
+          "events": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "signal",
+          "mode",
+          "candidateAction",
+          "reasonCode",
+          "ruleId",
+          "events"
+        ]
+      },
+      "ProtectionView": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ProtectionStatus"
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RiskSummary"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "observations"
+        ]
+      },
+      "ProtectionUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "settings": {
+            "$ref": "#/components/schemas/ProtectionSettings"
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "settings"
+        ]
+      },
+      "RiskFeedStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "torFetchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reputationFetchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "torEntries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reputationEntries": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "available",
+          "version",
+          "publishedAt",
+          "expiresAt",
+          "torFetchedAt",
+          "reputationFetchedAt",
+          "torEntries",
+          "reputationEntries"
+        ]
+      },
+      "SignedRiskFeed": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "signedPayload": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "signedPayload",
+          "signature"
+        ],
+        "description": "Authenticated signed payload contains schema=1, publication/expiry/source timestamps and Tor/reputation lists; verify exact bytes before decoding or activating."
+      },
+      "TrafficRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "receivedAt",
+          "agentId",
+          "processed",
+          "event"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "processed": {
+            "type": "boolean"
+          },
+          "event": {
+            "$ref": "#/components/schemas/TrafficEvent"
+          }
+        }
+      },
+      "TrafficBucket": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bucket",
+          "action",
+          "events",
+          "botEvents"
+        ],
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "redirect",
+              "fallback",
+              "block"
+            ]
+          },
+          "events": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "botEvents": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "TrafficFilter": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "domainId",
+          "linkId",
+          "action",
+          "country",
+          "device",
+          "os",
+          "browser"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "domainId": {
+            "type": "string"
+          },
+          "linkId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          },
+          "browser": {
+            "type": "string"
+          }
+        }
+      },
+      "TrafficAnalytics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "buckets",
+          "health",
+          "filter",
+          "rawRetentionDays",
+          "aggregateRetentionDays",
+          "uncollected"
+        ],
+        "properties": {
+          "buckets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrafficBucket"
+            }
+          },
+          "health": {
+            "$ref": "#/components/schemas/EventHealth"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/TrafficFilter"
+          },
+          "rawRetentionDays": {
+            "type": "integer"
+          },
+          "aggregateRetentionDays": {
+            "type": "integer"
+          },
+          "uncollected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AdapterProbeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "domainId",
+          "hostname",
+          "nonce",
+          "version"
+        ],
+        "properties": {
+          "domainId": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "hostname": {
+            "type": "string",
+            "maxLength": 253
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "AdapterProbeState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nonce",
+          "domainId",
+          "revision",
+          "geoRelease",
+          "ready",
+          "version"
+        ],
+        "properties": {
+          "nonce": {
+            "type": "string"
+          },
+          "domainId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "geoRelease": {
+            "type": "string",
+            "nullable": true
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "PHPManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            }
+          },
+          "signature": {
+            "type": "string"
+          },
+          "signedPayload": {
+            "type": "string",
+            "description": "Exact JSON bytes base64url signed with Ed25519; only decoded signed fields are authoritative."
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "php_zip"
+            ]
+          },
+          "minimumPhp": {
+            "type": "string",
+            "enum": [
+              "8.2"
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "artifacts",
+          "signature",
+          "signedPayload",
+          "publishedAt",
+          "method",
+          "minimumPhp"
+        ]
+      },
+      "SecurityStatus": {
+        "type": "object",
+        "required": [
+          "mfaEnabled",
+          "recoveryRemaining"
+        ],
+        "properties": {
+          "mfaEnabled": {
+            "type": "boolean"
+          },
+          "recoveryRemaining": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SecurityInput": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlOperation": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          }
+        }
+      },
+      "SignedControlMigration": {
+        "type": "object",
+        "required": [
+          "payload",
+          "signature"
+        ],
+        "properties": {
+          "payload": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlAck": {
+        "type": "object",
+        "required": [
+          "migrationId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "migrationId": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlIdentityInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nonce"
+        ],
+        "properties": {
+          "nonce": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        }
+      }
+    }
+  }
+}

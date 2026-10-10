@@ -1,0 +1,25 @@
+# B09 runtime template. Installation/proxy/HTTPS automation follows B10.
+services:
+  agent:
+    image: ${AGENT_IMAGE:?Use the verified image ID or registry reference with digest}
+    pull_policy: never
+    restart: unless-stopped
+    user: "${AGENT_UID:-10001}:${AGENT_GID:-10001}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "${AGENT_BIND_IP:-127.0.0.1}:${AGENT_PORT:-8091}:8080"
+    volumes:
+      - type: bind
+        source: ${AGENT_CONFIG_PATH:?Set a private mode-0600 config file}
+        target: /run/shortlink/agent.json
+        read_only: true
+      - type: bind
+        source: ${AGENT_DATA_PATH:?Set a private persistent mode-0700 data directory}
+        target: /var/lib/shortlink-agent
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

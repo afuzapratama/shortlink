@@ -1,0 +1,26 @@
+# Central API/publisher image. Build from repository root so the shared Go module is present.
+ARG GO_IMAGE=golang:1.27.1
+FROM ${GO_IMAGE} AS build
+WORKDIR /src
+COPY packages/geoip/go.mod packages/geoip/go.sum ./packages/geoip/
+COPY packages/policy/go.mod packages/policy/go.sum ./packages/policy/
+COPY packages/artifacts/go.mod ./packages/artifacts/
+COPY packages/risk/go.mod ./packages/risk/
+COPY services/control/go.mod services/control/go.sum ./services/control/
+WORKDIR /src/services/control
+RUN go mod download
+WORKDIR /src
+COPY packages/geoip ./packages/geoip
+COPY packages/policy ./packages/policy
+COPY packages/artifacts ./packages/artifacts
+COPY packages/risk ./packages/risk
+COPY services/control ./services/control
+WORKDIR /src/services/control
+RUN CGO_ENABLED=0 go build -trimpath -o /out/control ./cmd/control
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=build /out/control /usr/local/bin/control
+USER 10001:10001
+ENTRYPOINT ["/usr/local/bin/control"]
+CMD ["serve"]

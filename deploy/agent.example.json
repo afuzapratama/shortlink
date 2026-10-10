@@ -1,0 +1,12 @@
+{
+  "listen": "127.0.0.1:8091",
+  "controlUrl": "http://127.0.0.1:5173",
+  "domainId": "REPLACE_WITH_ENROLLED_DOMAIN_ID",
+  "hostname": "go.example.com",
+  "credential": "REPLACE_WITH_ENROLLMENT_CREDENTIAL",
+  "verificationKey": "REPLACE_WITH_PINNED_BOOTSTRAP_PUBLIC_KEY",
+  "dataDir": "/absolute/private/path/agent-state",
+  "trustedProxies": [],
+  "development": true,
+  "geoipRequired": true
+}

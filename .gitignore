@@ -1,0 +1,18 @@
+.env
+.env.*
+!.env.*.example
+data/
+secrets/
+*.mmdb
+*.db
+*.db-shm
+*.db-wal
+node_modules/
+dist/
+test-results/
+playwright-report/
+__pycache__/
+*.pyc
+
+# Local UI captures may contain session or enrollment information.
+docs/artifacts/

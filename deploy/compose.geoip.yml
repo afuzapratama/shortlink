@@ -1,0 +1,69 @@
+# GeoLite updater plus optional central publisher/API profiles (B07).
+services:
+  geoipupdate:
+    image: ${GEOIPUPDATE_IMAGE:?Set GEOIPUPDATE_IMAGE}
+    restart: unless-stopped
+    environment:
+      GEOIPUPDATE_ACCOUNT_ID: ${MAXMIND_ACCOUNT_ID:?Set MAXMIND_ACCOUNT_ID}
+      GEOIPUPDATE_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:?Set MAXMIND_LICENSE_KEY}
+      GEOIPUPDATE_EDITION_IDS: "GeoLite2-Country GeoLite2-City GeoLite2-ASN"
+      GEOIPUPDATE_FREQUENCY: ${GEOIPUPDATE_FREQUENCY:-24}
+      GEOIPUPDATE_DB_DIR: /usr/share/GeoIP
+    volumes:
+      - type: bind
+        source: ${GEOIP_HOST_STAGING_DIR:-../data/geoip/staging}
+        target: /usr/share/GeoIP
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional Linux host-network profiles use the existing central PostgreSQL.
+  # Publisher can write releases; API mounts the same directory read-only.
+  geoip-publisher:
+    profiles: [publisher]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.control
+    image: shortlink-control:local
+    command: [watch-geoip]
+    restart: unless-stopped
+    network_mode: host
+    user: "${CONTROL_UID:-1000}:${CONTROL_GID:-1000}"
+    env_file: .env.control
+    environment:
+      GEOIP_ROOT: /var/lib/shortlink/geoip
+    volumes:
+      - type: bind
+        source: ${GEOIP_HOST_ROOT:-../data/geoip}
+        target: /var/lib/shortlink/geoip
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  geoip-api:
+    profiles: [central-api]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.control
+    image: shortlink-control:local
+    restart: unless-stopped
+    network_mode: host
+    user: "${CONTROL_UID:-1000}:${CONTROL_GID:-1000}"
+    env_file: .env.control
+    environment:
+      GEOIP_ROOT: /var/lib/shortlink/geoip
+      GEOIP_PUBLISH_ENABLED: "false"
+      AGENT_ASSET_ROOT: /var/lib/shortlink/agent-assets
+    volumes:
+      - type: bind
+        source: ${GEOIP_HOST_ROOT:-../data/geoip}
+        target: /var/lib/shortlink/geoip
+        read_only: true
+      - type: bind
+        source: ${AGENT_HOST_ASSET_ROOT:-../data/agent-assets}
+        target: /var/lib/shortlink/agent-assets
+        read_only: true

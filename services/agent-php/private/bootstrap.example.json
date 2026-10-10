@@ -1,0 +1,7 @@
+{
+  "hostname": "go.example.com",
+  "publicUrl": "https://go.example.com",
+  "controlPlaneUrl": "https://control.example.com",
+  "trustedProxies": [],
+  "developmentLoopback": false
+}

@@ -1,0 +1,8 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+LimitRequestBody 8192
+RewriteEngine On
+RewriteRule ^(?:__agent|\.well-known/shortlink-ready)(?:/|$) index.php [END]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [END]

@@ -1,0 +1,9 @@
+# Runtime image from release builder's prebuilt CGO-disabled binary and public CA bundle.
+# Build context is a dedicated temporary directory, never the project/credential directory.
+FROM scratch
+COPY agent /usr/local/bin/agent
+COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+USER 10001:10001
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/agent"]
+CMD ["serve", "--config", "/run/shortlink/agent.json"]

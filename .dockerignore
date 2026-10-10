@@ -1,0 +1,15 @@
+.git
+node_modules
+**/node_modules
+**/dist
+data
+**/data
+secrets
+.env
+.env.*
+**/.env
+**/.env.*
+*.mmdb
+**/*.mmdb
+test-results
+playwright-report
