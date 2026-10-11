@@ -51,7 +51,7 @@ sudo ./agent-linux-amd64 install --bootstrap bootstrap.json --install-docker
 # Untuk VPS ARM gunakan agent-linux-arm64.
 ```
 
-Default root /opt/shortlink-agent harus direktori khusus, kosong pada instalasi pertama, mode 0700 dan tanpa symlink. Pemasangan Docker otomatis memakai repository resmi pada Ubuntu 22.04/24.04 dan Debian 12/13. Distro lain bisa memakai Docker Engine + Compose plugin yang dipasang operator. Docker context harus engine lokal lewat Unix socket; engine remote, Docker daemon mati dan paket yang konflik diberi penjelasan tanpa menghentikan service lain. Minimal ruang kosong 512 MiB; download juga memeriksa ruang sebesar artefak + cadangan 32 MiB. Rerun dengan root yang sama memakai identitas, credential dan data sebelumnya.
+Default root /opt/shortlink-agent harus direktori khusus, kosong pada instalasi pertama, mode 0700 dan tanpa symlink. Pemasangan Docker otomatis memakai repository resmi pada Ubuntu 22.04/24.04/26.04 dan Debian 12/13. Distro lain bisa memakai Docker Engine + Compose plugin yang dipasang operator. Docker context harus engine lokal lewat Unix socket; engine remote, Docker daemon mati dan paket yang konflik diberi penjelasan tanpa menghentikan service lain. Minimal ruang kosong 512 MiB; download juga memeriksa ruang sebesar artefak + cadangan 32 MiB. Rerun dengan root yang sama memakai identitas, credential dan data sebelumnya.
 
 Installer memakai endpoint install-context untuk memperoleh Installation ID yang terikat token, lalu enrollment dengan proof acak yang telah disimpan private. Retry setelah respons enrollment hilang memakai proof yang sama dalam window recovery pusat 10 menit. Token tidak disimpan; credential/proof hanya berada dalam installation.json dan config/agent.json mode 0600. Setelah credential diterima, rerun tidak meminta token lagi. Kehilangan proof sekaligus credential memerlukan revoke/re-enroll dari pusat.
 
@@ -100,3 +100,7 @@ Rilis v0.13.0-b13 melaporkan protectionVersion=1, mengunduh signed risk bundle d
 
 
 B18: rotasi credential dan migrasi origin dijalankan dengan private config pada runtime yang dihentikan. Tool operator, signature, ACK/retry dan rollback credential dijelaskan pada [SECURITY.md](SECURITY.md). Binary/runtime B13 dapat memakai config hasil maintenance; installer tidak perlu enrollment ulang kecuali agent dicabut.
+
+## B19 — Ubuntu 26.04
+
+Rilis immutable v0.19.1-b19 menambahkan instalasi Docker resmi untuk Ubuntu 26.04 (Resolute), termasuk ARM64. Rilis B13 tetap tersedia dan tidak diubah. Status pengujian publik dan konfigurasi aaPanel dicatat pada [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).

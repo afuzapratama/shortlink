@@ -97,3 +97,7 @@ Current release v0.13.0-b13 menyediakan parser crawler, signed feed/cache, limit
 
 
 B18 memakai tool operator `scripts/maintain-agent.py` dari checkout tepercaya untuk maintenance config Go/PHP. Tidak ada republish/mutasi paket immutable: runtime Go tetap v0.13.0-b13 dan ZIP PHP v0.17.0-b17. Tool membutuhkan Python 3/OpenSSL, runtime dihentikan, key pusat dipin dan untuk PHP config/bootstrap private keduanya diperbarui sebelum ACK. Distribusi tool embedded dalam installer/ZIP belum tersedia; [workflow keamanan](SECURITY.md) mencakup instalasi hosting tanpa CLI.
+
+## B19 — pengujian publik 11 Oktober 2026
+
+Ubuntu 26.04 ARM bersih didukung melalui rilis immutable v0.19.1-b19; v0.19.2-b19 dipakai menguji update/rollback. Pusat native ARM/HTTPS, Go agent dan kedua PHP aaPanel/cPanel lulus fungsi/readiness. Go 300 RPS/15 menit tanpa error; backup/restore dataset 388.790 event cocok pada seluruh 27 tabel. Kapasitas PHP/API VPS masih belum lulus; geoipupdate/jadwal production ditunda sesuai arahan. Hasil lengkap dan gate tersisa: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).

@@ -92,3 +92,5 @@ B19 sedang dikerjakan: [operasi/backup dan diagnostic kapasitas](docs/OPERATIONS
 
 
 B19 selesai untuk implementasi/uji lokal: [hasil kapasitas](docs/CAPACITY_B19.md), [runbook operasi](docs/OPERATIONS.md), backup/restore 90k events, SIGKILL/SQLITE_FULL/ENOSPC, outage singkat dan retensi. API full 300 RPS/15 menit: 270k tanpa error, p95 8,98 ms. Hasil tmpfs/loopback/shared host bukan jaminan VPS atau hosting. Berikutnya B20; VPS/HTTPS publik/ARM/hosting nyata tetap gate release. Image pusat lokal terbaru: `shortlink-control:b19-local`.
+
+Pengujian publik B19 (11 Oktober 2026): pusat/agent native ARM, VPS Ubuntu 26.04 bersih, HTTPS dan PHP aaPanel/cPanel 8.2+ lulus fungsi. Go 300 RPS/15 menit tanpa error, backup/restore 388.790 events lulus. Kapasitas PHP/API nyata masih terbuka; lihat [hasil publik](docs/PUBLIC_TESTS_B19.md).

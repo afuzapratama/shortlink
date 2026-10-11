@@ -1,6 +1,6 @@
 # Fase dan batch implementasi
 
-Status: B01–B09 selesai. B10 terimplementasi dan diuji lokal; acceptance VPS bersih/HTTPS publik masih terbuka. B11 terimplementasi dan diuji lokal; B12 terimplementasi dan diuji lokal. B13 terimplementasi dan diuji lokal. B14 terimplementasi dan diuji lokal; B15 terimplementasi dan diuji lokal; B16 terimplementasi dan diuji lokal; B17 terimplementasi dan diuji lokal; B18 terimplementasi dan diuji lokal; B19 terimplementasi dan diuji lokal; B20 belum dimulai. Acuan: [PLAN.md](PLAN.md) dan [UI_UX.md](UI_UX.md). ID batch merupakan urutan dependensi, bukan perkiraan hari kerja.
+Status: B01–B18 terimplementasi dan diuji lokal. B19 lokal selesai; VPS ARM bersih, HTTPS publik dan PHP aaPanel/cPanel lulus fungsi, Go publik 300 RPS/15 menit lulus. Gate kapasitas PHP/API nyata masih terbuka; B20 belum dimulai. Hasil terbaru: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md); baseline lokal: [CAPACITY_B19.md](CAPACITY_B19.md). Acuan desain: [PLAN.md](PLAN.md) dan [UI_UX.md](UI_UX.md).
 
 ## 1. Hasil review plan
 
@@ -289,3 +289,7 @@ Tuning B19 terbaru: worker hold p95 94,20 ms sebelum override JIT, turun menjadi
 ## Penutupan B19 lokal
 
 Hasil final [CAPACITY_B19.md](CAPACITY_B19.md) menggantikan status progress sebelumnya. API 50/30 menit dan 300/15 menit tanpa error; stress 600/5 menit 37/180k decision_busy (0,0206%) memenuhi ambang <0,1%, p95 9,66 ms. Go lokal 300/600 tanpa error/loss; ingest PostgreSQL 270k/15 menit tanpa error dan accounting cocok. Dataset 90k dibackup/restore, failure/restart/outage 10 detik/retensi/GeoLite/contract/regression/image build lulus. Scope local fixture/shared host/tmpfs/optional GeoLite/stub/network tetap dicatat; private production release belum dinyatakan siap.
+
+## B19 — lingkungan publik mulai 11 Oktober 2026
+
+Deployment pusat native ARM/aaPanel dan HTTPS sudah berjalan, browser login desktop/mobile lulus. Pengujian VPS ARM bersih dan PHP aaPanel/cPanel sedang berjalan; hasil serta gate yang belum selesai mengikuti [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md). Ini melengkapi gate B19 nyata sebelum penutupan deployment/B20.

@@ -1,16 +1,20 @@
 # Data dan agenda pengujian
 
-## Gate VPS ARM — menunggu VPS dari owner
+## Gate publik ARM/hosting — 11 Oktober 2026
 
-Owner akan menyediakan VPS ARM untuk pengujian berikut. Belum ada alamat/akses VPS atau hasil pengujian; jangan mencatat gate ini sebagai lulus.
+Lingkungan owner tersedia dan pengujian berlangsung. Bukti terbaru di [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md); sejarah batch lokal di bawah tidak menggantikan status lingkungan nyata ini.
 
-| ID | Skenario | Data/prasyarat | Bukti kelulusan | Status |
-|---|---|---|---|---|
-| VPS-01 | Installer pada VPS bersih | Ubuntu 22.04/24.04 atau Debian 12/13 ARM64; root/sudo; belum ada Docker; bootstrap CLI terverifikasi | Docker/Compose terpasang, image ARM benar, credential private, signed config dan MMDB siap, redirect sesuai aturan | Menunggu VPS ARM |
-| VPS-02 | Reuse Docker dan rerun | VPS ARM dengan Docker aktif; data/credential hasil VPS-01 | Tidak mengganti identitas atau menghapus MMDB/data; service existing tetap berjalan | Menunggu VPS ARM |
-| TLS-01 | HTTPS publik | Domain A/AAAA menunjuk VPS, port TCP 80/443 tersedia, pusat HTTPS | Sertifikat valid, HTTP dialihkan ke HTTPS, redirect dan authenticated readiness probe berhasil | Menunggu VPS/domain |
-| ARM-01 | Eksekusi native ARM64 | Binary/image ARM64 signed; CPU ARM asli | Install, status, policy iPhone/Android, GeoLite, heartbeat, outage, update dan rollback berjalan tanpa emulasi | Menunggu VPS ARM |
-| OPS-01 | Konflik dan recovery | Port publik terpakai; gagal download/update; pusat sementara offline | Error dapat ditindaklanjuti; tidak menghentikan service lain; data dipertahankan; rollback/retry berhasil | Menunggu VPS ARM |
+| ID | Skenario | Lingkungan/bukti | Status |
+|---|---|---|---|
+| VPS-01 | Installer pada VPS bersih | Ubuntu 26.04.1 ARM64; Docker 29.9.0/Compose 5.6.0 dipasang oleh CLI; signed config/MMDB siap | Lulus pada Ubuntu 26.04; 22.04/24.04/Debian belum native |
+| VPS-02 | Reuse Docker dan rerun | Identitas/data tetap; rerun tanpa token baru; restart ready kembali | Lulus ARM |
+| TLS-01 | HTTPS publik | Pusat Nginx/Certbot dan agent ARM Caddy; kedua PHP HTTPS valid; authenticated public probes | Lulus ketiga agent |
+| ARM-01 | Eksekusi native ARM64 | Pusat/agent berjalan native; iPhone/iOS, GeoLite, heartbeat, update/rollback | Lulus eksekusi/fungsi dan soak Go300/15 menit |
+| OPS-01 | Recovery | Update 19.1→19.2/rollback 19.1; outage pusat 10 detik; lokal crash/ENOSPC | Lulus kasus yang dicatat; konflik port/failed download live belum diulang |
+| PHP-01 | aaPanel | Nginx/private path/PHP-FPM 8.4, browser install lock, readiness/routing/edited destination/device | Lulus fungsi; kapasitas API belum lulus |
+| PHP-02 | cPanel/LiteSpeed | PHP web 8.2.34, private di luar webroot, browser install lock, readiness/routing/device | Lulus fungsi/versi minimum dan diagnostic 10 RPS sesudah Go load berhenti |
+| CAP-01 | Go publik 300 RPS/15 menit | Caddy/native ARM/GeoLite/SQLite, upload ke PostgreSQL nyata | Lulus 270.000 redirect, error/drop 0; accounting/queue lulus |
+| CAP-02 | PHP/API VPS | 50 RPS diagnostic lulus; 300 RPS gagal target; 100 RPS bersama Go 300 juga gagal target | Gate throughput tinggi masih terbuka |
 
 Gunakan domain dan token test khusus, database/data yang terisolasi dari trafik produksi. Catat distro/CPU, versi release, image digest, waktu, hasil dan log yang telah dibersihkan dari credential. Kapasitas 100–300 klik/detik tetap gate B19, bukan hasil dari pengujian installer.
 
@@ -62,3 +66,5 @@ B19 terbaru: worker AggregateEvents memakai SET LOCAL jit=off khusus transaksi b
 
 
 Penutupan B19 lokal: [CAPACITY_B19.md](CAPACITY_B19.md) dan [OPERATIONS.md](OPERATIONS.md) berisi hasil full-duration, scope, failure/restore dan batas yang masih terbuka. API 50/30m,300/15m,600/5m memenuhi gate lokal; Go lokal 300/15m,600/5m tanpa error/loss; real batch ingest 300 events/s menerima 270k dalam 15m dengan accounting cocok. Restore dataset 90k, crash queue SIGKILL, SQLITE_FULL/recovery dan actual ENOSPC Docker tmpfs lulus. Backend/agent race, GeoLite cleanup/retensi, dashboard/contract dan Docker image build lulus. Source Dockerfile pusat sekarang menyertakan risk module. Riwayat status B19 berjalan sebelumnya bukan status final; B20/gate lingkungan nyata belum selesai.
+
+Hasil akhir publik: backup/restore dataset 388.790 events dengan fingerprint seluruh 27 tabel cocok; native ARM SQLITE_FULL/SIGKILL/ENOSPC lulus; kedua PHP fail closed saat outage 10 detik. API/PHP throughput tinggi tetap belum memenuhi gate. Detail scope/durasi/generator: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).

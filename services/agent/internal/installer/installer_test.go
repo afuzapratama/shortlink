@@ -208,7 +208,7 @@ func TestPrivatePathsAndComposeIsolation(t *testing.T) {
 	}
 }
 func TestDockerOSBaseline(t *testing.T) {
-	for _, v := range []string{"ID=ubuntu\nVERSION_CODENAME=noble", "ID=debian\nVERSION_CODENAME=trixie"} {
+	for _, v := range []string{"ID=ubuntu\nVERSION_CODENAME=jammy", "ID=ubuntu\nVERSION_CODENAME=noble", "ID=ubuntu\nVERSION_CODENAME=resolute", "ID=debian\nVERSION_CODENAME=bookworm", "ID=debian\nVERSION_CODENAME=trixie"} {
 		if _, _, e := parseOS(v); e != nil {
 			t.Fatal(e)
 		}

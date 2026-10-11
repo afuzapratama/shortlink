@@ -432,3 +432,7 @@ B19 terbaru: worker AggregateEvents memakai SET LOCAL jit=off khusus transaksi b
 
 
 Penutupan B19 lokal: [CAPACITY_B19.md](CAPACITY_B19.md) dan [OPERATIONS.md](OPERATIONS.md) berisi hasil full-duration, scope, failure/restore dan batas yang masih terbuka. API 50/30m,300/15m,600/5m memenuhi gate lokal; Go lokal 300/15m,600/5m tanpa error/loss; real batch ingest 300 events/s menerima 270k dalam 15m dengan accounting cocok. Restore dataset 90k, crash queue SIGKILL, SQLITE_FULL/recovery dan actual ENOSPC Docker tmpfs lulus. Backend/agent race, GeoLite cleanup/retensi, dashboard/contract dan Docker image build lulus. Source Dockerfile pusat sekarang menyertakan risk module. Riwayat status B19 berjalan sebelumnya bukan status final; B20/gate lingkungan nyata belum selesai.
+
+## B19 — pengujian publik 11 Oktober 2026
+
+Ubuntu 26.04 ARM bersih didukung melalui rilis immutable v0.19.1-b19; v0.19.2-b19 dipakai menguji update/rollback. Pusat native ARM/HTTPS, Go agent dan kedua PHP aaPanel/cPanel lulus fungsi/readiness. Go 300 RPS/15 menit tanpa error; backup/restore dataset 388.790 event cocok pada seluruh 27 tabel. Kapasitas PHP/API VPS masih belum lulus; geoipupdate/jadwal production ditunda sesuai arahan. Hasil lengkap dan gate tersisa: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).

@@ -21,9 +21,9 @@ func parseOS(raw string) (string, string, error) {
 		}
 	}
 	id, code := values["ID"], values["VERSION_CODENAME"]
-	supported := map[string]bool{"ubuntu:jammy": true, "ubuntu:noble": true, "debian:bookworm": true, "debian:trixie": true}
+	supported := map[string]bool{"ubuntu:jammy": true, "ubuntu:noble": true, "ubuntu:resolute": true, "debian:bookworm": true, "debian:trixie": true}
 	if !supported[id+":"+code] {
-		return "", "", errors.New("automatic Docker installation supports Ubuntu 22.04/24.04 and Debian 12/13 only; install Docker manually on other distributions")
+		return "", "", errors.New("automatic Docker installation supports Ubuntu 22.04/24.04/26.04 and Debian 12/13 only; install Docker manually on other distributions")
 	}
 	return id, code, nil
 }

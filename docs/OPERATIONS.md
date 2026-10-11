@@ -1,6 +1,6 @@
 # B19 — Operasi dan pengujian kapasitas
 
-Status B19 **terimplementasi dan diuji lokal**. Acceptance API 50/300/600 RPS pada durasi 30/15/5 menit, Go lokal 300/600, batch ingest PostgreSQL, failure gates dan restore dataset telah selesai. Hasil final dan seluruh batasnya ada di [CAPACITY_B19.md](CAPACITY_B19.md). VPS/SSD/network/TLS/ARM/hosting nyata tetap gate sebelum produksi.
+B19 lokal selesai sesuai [CAPACITY_B19.md](CAPACITY_B19.md). Pengujian nyata kini mencakup VPS ARM bersih, HTTPS, PHP aaPanel/cPanel, Go 300 RPS/15 menit, outage 10 detik dan backup/restore 388.790 events. **Gate kapasitas PHP/API belum lulus pada VPS pusat 2 vCPU**; tetap B19 sebelum penutupan deployment/B20. Hasil dan batas pengujian: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).
 
 ## Backup dan restore pusat
 
@@ -199,3 +199,7 @@ bash scripts/test-queue-enospc.sh
 Untuk Go lokal, dari services/agent: `SHORTLINK_LOAD_MODE=full SHORTLINK_LOAD_RATE=300 SHORTLINK_LOCAL_LOAD_REPORT=/private/results/local300.json go test -count=1 -timeout 20m -run '^TestLocalCapacityHTTP$' -v ./internal/runtime` (600 memakai durasi lima menit). Default full lokal menggunakan healthy stub/upload queue; outage 10 detik diuji terpisah pada suite agent. Test ENOSPC membutuhkan existing image amd64 `shortlink-agent:v0.13.0-b13-amd64`; tidak menarik image baru atau mengisi disk production.
 
 Simpan snapshot runner sebelum long test dan jangan mengubah script aktif. B20 berikutnya: review E2E/responsive/a11y, upgrade/rollback dan acceptance deployment yang masih terbuka. Jangan menandai release production siap sampai gate lingkungan nyata lulus.
+
+## B19 — lingkungan publik mulai 11 Oktober 2026
+
+Deployment pusat native ARM/aaPanel dan HTTPS sudah berjalan, browser login desktop/mobile lulus. Pengujian VPS ARM bersih dan PHP aaPanel/cPanel sedang berjalan; hasil serta gate yang belum selesai mengikuti [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md). Ini melengkapi gate B19 nyata sebelum penutupan deployment/B20.
