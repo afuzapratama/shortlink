@@ -5325,6 +5325,21 @@
           },
           "risk": {
             "$ref": "#/components/schemas/RiskObservation"
+          },
+          "clientIp": {
+            "type": "string",
+            "maxLength": 45,
+            "description": "Canonical visitor IPv4/IPv6 address; absent on legacy events."
+          },
+          "asn": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "asnOrganization": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "Autonomous system organization from GeoLite2-ASN; not necessarily the retail ISP."
           }
         },
         "required": [

@@ -148,12 +148,12 @@ func TestAPIDecisionParityReplayConcurrencyAndPrivacy(t *testing.T) {
 	if err = db.DB.QueryRow(ctx, "SELECT request_hash FROM api_decisions WHERE agent_id=$1", a.ID).Scan(&hash); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(eventJSON, "1.1.1.1") || strings.Contains(eventJSON, "8.8.8.8") || strings.Contains(eventJSON, "Mozilla/") || len(hash) != 64 {
-		t.Fatal("PII persisted", eventJSON)
+	if !strings.Contains(eventJSON, `"clientIp": "1.1.1.1"`) && !strings.Contains(eventJSON, `"clientIp":"1.1.1.1"`) || strings.Contains(eventJSON, "8.8.8.8") || strings.Contains(eventJSON, "Mozilla/") || len(hash) != 64 {
+		t.Fatal("visitor log fields or raw UA exclusion incorrect")
 	}
 	var event policy.TrafficEvent
 	json.Unmarshal([]byte(eventJSON), &event)
-	if event.Source != "php" || event.Country != "ID" || event.OS != "ios" || event.Device != "mobile" {
+	if event.ClientIP != "1.1.1.1" || event.ASN == nil || *event.ASN != 64512 || event.ASNOrganization != "TEST NETWORK" || event.Source != "php" || event.Country != "ID" || event.OS != "ios" || event.Device != "mobile" {
 		t.Fatal(event)
 	}
 	mapped := in

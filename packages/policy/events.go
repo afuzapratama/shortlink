@@ -2,8 +2,11 @@ package policy
 
 import "time"
 
-// TrafficEvent contains classified signals, never client IP, raw UA or request headers.
+// TrafficEvent contains visitor IP and classified signals, never raw UA or request headers.
 type TrafficEvent struct {
+	ClientIP        string  `json:"clientIp,omitempty"`
+	ASN             *uint32 `json:"asn,omitempty"`
+	ASNOrganization string  `json:"asnOrganization,omitempty"`
 	Decision
 	OccurredAt     time.Time `json:"occurredAt"`
 	DomainID       string    `json:"domainId"`

@@ -111,13 +111,13 @@ func TestTrafficPaginationAggregationAndExport(t *testing.T) {
 	q.Set("from", from.Format(time.RFC3339))
 	status(t, request(s, "POST", "/v1/admin/events/export?"+q.Encode(), "", testOrigin, "", cookie), 403)
 	// Formula-like metadata must remain literal in CSV, including leading whitespace.
-	if _, err = db.DB.Exec(ctx, `UPDATE traffic_events SET payload=jsonb_set(payload,'{eventId}','" @SUM(1)"'::jsonb) WHERE id=(SELECT min(id) FROM traffic_events)`); err != nil {
+	if _, err = db.DB.Exec(ctx, `UPDATE traffic_events SET payload=jsonb_set(payload,'{eventId}','" @SUM(1)"'::jsonb) || '{"clientIp":"1.1.1.1","asn":13335,"asnOrganization":"CLOUDFLARENET"}'::jsonb WHERE id=(SELECT min(id) FROM traffic_events)`); err != nil {
 		t.Fatal(err)
 	}
 	w := request(s, "POST", "/v1/admin/events/export?"+q.Encode(), "", testOrigin, csrf, cookie)
 	status(t, w, 200)
 	records, err := csv.NewReader(strings.NewReader(w.Body.String())).ReadAll()
-	if err != nil || len(records) != 4 || records[3][0] != "' @SUM(1)" || w.Header().Get("X-Export-Truncated") != "false" {
+	if err != nil || len(records) != 4 || records[3][0] != "' @SUM(1)" || len(records[0]) != 18 || records[3][15] != "1.1.1.1" || records[3][16] != "13335" || records[3][17] != "CLOUDFLARENET" || w.Header().Get("X-Export-Truncated") != "false" {
 		t.Fatal("CSV", err, w.Body.String())
 	}
 	q.Set("from", now.Truncate(24*time.Hour).Add(-90*24*time.Hour).Format(time.RFC3339))

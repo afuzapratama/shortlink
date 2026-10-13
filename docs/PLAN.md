@@ -108,7 +108,7 @@ SQLite dipakai untuk konfigurasi dan antrean lokal, dengan penulis antrean khusu
 
 ### Shared hosting: mode API
 
-Adapter PHP mengirim IP yang sudah ditentukan dari proxy terpercaya, domain/slug, sinyal header terbatas, waktu, dan event ID ke API pusat melalui HTTPS. Pusat memvalidasi kredensial serta cakupan domain, melakukan deteksi, lalu mengembalikan keputusan. IP koneksi API adalah IP adapter, bukan IP pengunjung; keduanya dipisahkan saat pemrosesan. IP penuh/UA mentah tidak dipersist dalam log event.
+Adapter PHP mengirim IP yang sudah ditentukan dari proxy terpercaya, domain/slug, sinyal header terbatas, waktu, dan event ID ke API pusat melalui HTTPS. Pusat memvalidasi kredensial serta cakupan domain, melakukan deteksi, lalu mengembalikan keputusan. IP koneksi API adalah IP adapter, bukan IP pengunjung; keduanya dipisahkan saat pemrosesan. Sejak revisi 14 Oktober 2026, IP pengunjung, ASN dan organisasi ASN dicatat dalam event. UA mentah tidak dipersist dalam log event.
 
 Event keputusan dicatat sekali di pusat. Jika perlu membedakan keputusan dengan respons yang dikirim adapter, adapter dapat mengirim acknowledgement dengan ID yang sama. Sistem tidak mengklaim bahwa respons redirect berarti pengunjung berhasil membuka situs tujuan.
 
@@ -474,3 +474,15 @@ snapshot Go offline tetap berlaku sampai lease habis. UI menjelaskan dampak ini.
 Audit domain menjadi tabel dua kolom, header tetap, scroll maksimal 320px dan
 bisa difokuskan dengan keyboard. Panel progres instalasi dan paket memakai dua
 kolom di desktop dan satu kolom di layar kecil.
+
+### IP dan jaringan pada log keputusan (14 Oktober 2026)
+GeoLite2-ASN sudah dibaca pada pusat dan agent Go untuk aturan ASN. Event baru
+kini membawa clientIp, asn, dan asnOrganization dari lookup MMDB yang sama.
+Log keputusan menampilkan IP, AS number dan organisasi jaringan, termasuk
+rincian serta CSV. Organisasi ASN tidak disebut sebagai ISP retail karena
+GeoLite2-ASN tidak menyediakan field ISP; rujukan:
+https://dev.maxmind.com/geoip/docs/databases/asn/binary/.
+Metadata lama opsional agar antrean/event agent lama tetap dapat diterima.
+IP memakai sumber yang telah ditentukan melalui konfigurasi trusted proxy.
+Retensi log mentah tetap berlaku; agregat tidak menyimpan IP. PHP memakai
+klasifikasi pusat; Go memerlukan rilis v0.20.5 atau lebih baru untuk metadata ini.

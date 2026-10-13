@@ -129,6 +129,7 @@ func (s *Server) classify(ctx context.Context, domain string, signals policy.Sig
 	if err != nil {
 		return policy.Signals{}, nil, nil, err
 	}
+	signals.ASNOrganization = geo.Organization
 	signals.Country = geo.Country
 	if signals.Country == "" {
 		signals.Country = "unknown"
@@ -238,7 +239,7 @@ func (s *Server) makeDecision(w http.ResponseWriter, r *http.Request, a store.Ag
 		d := routing.Engine.EvaluateRouting(link.ID, link.Destination, link.Routing, signals, routing.Protection)
 		d.GeoRelease = geo
 		d.FeedVersion = feed
-		return policy.TrafficEvent{Decision: d, Country: signals.Country, Device: signals.Device, OS: signals.OS, Browser: signals.Browser, OSVersion: signals.OSVersion, BrowserVersion: signals.BrowserVersion, DeviceBrand: signals.DeviceBrand, DeviceModel: signals.DeviceModel}, nil
+		return policy.TrafficEvent{ClientIP: ip.Unmap().String(), ASN: signals.ASN, ASNOrganization: signals.ASNOrganization, Decision: d, Country: signals.Country, Device: signals.Device, OS: signals.OS, Browser: signals.Browser, OSVersion: signals.OSVersion, BrowserVersion: signals.BrowserVersion, DeviceBrand: signals.DeviceBrand, DeviceModel: signals.DeviceModel}, nil
 	})
 	if err != nil {
 		s.decisionFailure(w, err)

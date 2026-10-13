@@ -1,6 +1,6 @@
 # B12 — antrean klik dan worker pusat
 
-B12 mencatat keputusan GET untuk slug yang dikenal: redirect, fallback, atau block aturan. HEAD, probe/health, host asing, 404 dan konfigurasi unavailable tidak dihitung sebagai klik. B14 menampilkan challenge/error runtime sebagai belum dikumpulkan; perlu perluasan event pada batch terkait. Event tidak menyimpan IP penuh, UA mentah, query visitor atau header; hanya identitas domain/link, waktu UTC, revision, versi GeoLite dan klasifikasi negara/device/OS/browser beserta metadata deteksi opsional. Destination berasal dari keputusan routing yang sudah terverifikasi.
+B12 mencatat keputusan GET untuk slug yang dikenal: redirect, fallback, atau block aturan. HEAD, probe/health, host asing, 404 dan konfigurasi unavailable tidak dihitung sebagai klik. B14 menampilkan challenge/error runtime sebagai belum dikumpulkan; perlu perluasan event pada batch terkait. Sejak revisi log 14 Oktober 2026, event baru menyimpan IP pengunjung, ASN dan organisasi ASN. Event tidak menyimpan UA mentah, query visitor atau header; hanya identitas domain/link, waktu UTC, revision, versi GeoLite dan klasifikasi negara/device/OS/browser beserta metadata deteksi opsional. Destination berasal dari keputusan routing yang sudah terverifikasi.
 
 ## Agent
 
@@ -38,7 +38,7 @@ B13 menambah optional risk evidence pada decision/event, candidate risk hourly a
 
 ## Keputusan API B15
 
-[API keputusan](DECISIONS.md) menulis event `source=php` bersama respons replay dalam satu transaksi durable. Worker/retensi B12 dan log B14 dipakai kembali. Retry sama tidak menambah event atau charge visitor budget; payload berubah ditolak, revoke diperiksa lagi. Raw IP/UA tidak disimpan; keyed request fingerprint menjaga parity retry tanpa menyimpan sinyal mentah. Counter PHP menghitung keputusan pusat, belum membuktikan browser melakukan redirect.
+[API keputusan](DECISIONS.md) menulis event `source=php` bersama respons replay dalam satu transaksi durable. Worker/retensi B12 dan log B14 dipakai kembali. Retry sama tidak menambah event atau charge visitor budget; payload berubah ditolak, revoke diperiksa lagi. IP pengunjung dan metadata ASN dicatat pada event baru; UA mentah tidak disimpan; keyed request fingerprint menjaga parity retry tanpa menyimpan sinyal mentah. Counter PHP menghitung keputusan pusat, belum membuktikan browser melakukan redirect.
 
 `GET /v1/admin/system/events` menghitung queue/active/stale hanya dari agent CLI; PHP idle tidak memiliki heartbeat/queue lokal. Pending/watermark tetap mencakup seluruh source. Probe adapter tidak menghasilkan klik. Retensi membersihkan api_decisions berdasarkan waktu ingest bersama event_keys; window retry validasi tetap maksimal 48 jam dari occurredAt.
 

@@ -474,6 +474,7 @@ func (a *Agent) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	signals := policy.Detect(r.UserAgent())
 	if result, e := a.geo.Lookup(ip); e == nil {
+		signals.ASNOrganization = result.Organization
 		if policy.ValidCountry(result.Country) {
 			signals.Country = result.Country
 		}
@@ -505,7 +506,7 @@ func (a *Agent) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			decision.ConfigRevision = state.snapshot.Revision
 			decision.GeoRelease = a.geo.ActiveRelease()
 			decision.FeedVersion = feed.Version
-			a.queue.Enqueue(policy.TrafficEvent{Decision: decision, OccurredAt: time.Now().UTC(), DomainID: a.cfg.DomainID, LinkID: state.linkIDs[slug], Country: signals.Country, Device: signals.Device, OS: signals.OS, Browser: signals.Browser, Source: "go", OSVersion: signals.OSVersion, BrowserVersion: signals.BrowserVersion, DeviceBrand: signals.DeviceBrand, DeviceModel: signals.DeviceModel})
+			a.queue.Enqueue(policy.TrafficEvent{ClientIP: ip.String(), ASN: signals.ASN, ASNOrganization: signals.ASNOrganization, Decision: decision, OccurredAt: time.Now().UTC(), DomainID: a.cfg.DomainID, LinkID: state.linkIDs[slug], Country: signals.Country, Device: signals.Device, OS: signals.OS, Browser: signals.Browser, Source: "go", OSVersion: signals.OSVersion, BrowserVersion: signals.BrowserVersion, DeviceBrand: signals.DeviceBrand, DeviceModel: signals.DeviceModel})
 		}
 	}
 	if decision.Action == "block" {

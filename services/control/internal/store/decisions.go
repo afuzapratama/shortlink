@@ -69,7 +69,7 @@ func (s *Store) routing(ctx context.Context, tx pgx.Tx, domain string, revision 
 	return r, nil
 }
 
-// MakeDecision commits replay response and classified event together. No visitor IP/UA is persisted.
+// MakeDecision commits replay response and classified event together. Visitor IP and ASN metadata are recorded; raw UA is not persisted.
 func (s *Store) MakeDecision(ctx context.Context, a Agent, eventID, hash, slug string, at time.Time, evaluate func(*Routing, Link) (policy.TrafficEvent, error)) (policy.Decision, bool, error) {
 	defer Measure(ctx, "transaction_total")()
 	var result policy.Decision

@@ -87,3 +87,15 @@ Koreksi BEON tanpa kuota harian: uji backend memastikan BEON tetap menerima look
 Revisi BEON-only: delapan flag terpilih diuji masing-masing; datacenter tidak terpilih dan daftar kosong tidak menolak; flags hilang menjadi unknown. Go cache flag mentah diuji dengan pergantian pilihan; publish/downgrade routingVersion 3 terhadap daftar baru ditolak. Koneksi publik ARM/PHP aaPanel/cPanel diuji dengan heartbeat, request shortlink dan probe: ketiganya online/ready, revision cocok sekitar 19.22 WIB 13 Oktober 2026, masih rilis publik lama.
 
 Smoke aktual terakhir BEON: /health 503 unhealthy dan lookup single IP 503 reputation_unavailable. Integrasi memperlihatkan unavailable dan mengikuti unknown fallback; bukan acceptance lookup known pada dataset saat ini. Domain lokal gopane.com masih draft/unknown, belum enrollment.
+
+### Log IP/ASN — 14 Oktober 2026
+
+- Backend race: lulus; IP canonical IPv4/IPv6, ASN positif, organisasi bounded,
+  event legacy, klasifikasi PHP, replay dan CSV tetap sesuai.
+- Agent race: lulus; MMDB fixture membuktikan IP/ASN/organisasi ikut masuk antrean Go.
+- Browser live: 30 lulus desktop/mobile; tabel/rincian metadata dan log lama diuji.
+- Staging: UI/API dan manifest signed v0.20.5 terverifikasi.
+- Production: event baru Go/PHP memuat IP/ASN/organisasi; UI/CSV terverifikasi.
+- ARM: updater ke v0.20.5 sukses, Caddyfile sebelum/sesudah identik.
+- PHP cPanel: redirect 302 teruji dengan --resolve (TLS domain tetap diperiksa);
+  DNS publik domain phpagent.zekivo.my.id belum menghasilkan A pada pemeriksaan ini.

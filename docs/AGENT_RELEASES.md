@@ -101,3 +101,17 @@ B18 memakai tool operator `scripts/maintain-agent.py` dari checkout tepercaya un
 ## B19 — pengujian publik 11 Oktober 2026
 
 Ubuntu 26.04 ARM bersih didukung melalui rilis immutable v0.19.1-b19; v0.19.2-b19 dipakai menguji update/rollback. Pusat native ARM/HTTPS, Go agent dan kedua PHP aaPanel/cPanel lulus fungsi/readiness. Go 300 RPS/15 menit tanpa error; backup/restore dataset 388.790 event cocok pada seluruh 27 tabel. Kapasitas PHP/API VPS masih belum lulus; geoipupdate/jadwal production ditunda sesuai arahan. Hasil lengkap dan gate tersisa: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).
+
+## Rilis v0.20.5 — jaringan pengunjung
+
+Event Go menyertakan `clientIp`, `asn`, dan `asnOrganization` dari IP hasil
+resolusi trusted proxy dan lookup GeoLite2-ASN yang sudah tersedia. Tidak ada
+lookup eksternal tambahan untuk metadata log. Backend pusat menerima field
+opsional ini; event/antrean versi lama tetap valid. PHP tidak membutuhkan ZIP
+baru karena pusat membentuk metadata event PHP.
+
+Rilis immutable amd64/arm64 telah dipublikasi signed di staging dan production.
+Agent ARM publik diperbarui melalui installer, dengan Caddyfile tetap identik.
+Keputusan nyata Go dan PHP, kolom dashboard, serta header CSV sudah diverifikasi.
+Suite backend race dan agent race, uji metadata/validasi/export, serta 30 uji
+browser desktop/mobile lulus. Log historis tanpa IP tidak diisi ulang.

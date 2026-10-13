@@ -50,6 +50,7 @@ export interface Decision {
  risk?:RiskObservation;
 }
 export interface TrafficEvent extends Decision {
+ clientIp?:string; asn?:number; asnOrganization?:string;
   occurredAt: string; domainId: string; linkId: string;
   country: string; device: Device; os: OperatingSystem; browser: BrowserFamily; source: 'go' | 'php';
   osVersion?: string | null; browserVersion?: string | null;

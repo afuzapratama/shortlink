@@ -33,6 +33,7 @@ type ScopedRule struct {
 	ScopeID *string `json:"scopeId"`
 }
 type Signals struct {
+	ASNOrganization     string          `json:"asnOrganization,omitempty"`
 	IPQuality           *IPQualityFlags `json:"ipQuality,omitempty"`
 	ProxyDetected       bool            `json:"proxyDetected"`
 	ProxyStatus         string          `json:"proxyStatus"`

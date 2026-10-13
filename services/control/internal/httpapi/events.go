@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"shortlink.local/control/internal/security"
 	"shortlink.local/control/internal/store"
@@ -15,6 +16,16 @@ import (
 )
 
 func validTrafficEvent(e policy.TrafficEvent) bool {
+	if e.ClientIP != "" {
+		ip, err := netip.ParseAddr(e.ClientIP)
+		if err != nil || ip.Zone() != "" || ip.Unmap().String() != e.ClientIP {
+			return false
+		}
+	}
+	if e.ASN != nil && *e.ASN == 0 || len(e.ASNOrganization) > 256 || strings.ContainsAny(e.ASNOrganization, "\r\n\x00") || e.ASNOrganization != "" && e.ASN == nil {
+		return false
+	}
+
 	if !security.ValidToken(e.EventID) || e.DomainID == "" || len(e.DomainID) > 128 || e.LinkID == "" || len(e.LinkID) > 128 || e.ConfigRevision < 1 || e.OccurredAt.IsZero() || e.OccurredAt.Before(time.Now().Add(-48*time.Hour)) || e.OccurredAt.After(time.Now().Add(5*time.Minute)) || e.Source != "go" {
 		return false
 	}

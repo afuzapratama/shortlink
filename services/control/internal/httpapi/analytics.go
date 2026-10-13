@@ -182,7 +182,7 @@ func (s *Server) trafficAdmin(w http.ResponseWriter, r *http.Request) bool {
 	}
 	var buffer bytes.Buffer
 	writer := csv.NewWriter(&buffer)
-	writer.Write([]string{"event_id", "agent_id", "occurred_at", "received_at", "domain_id", "link_id", "action", "reason", "country", "device", "os", "browser", "destination", "revision", "risk_observation"})
+	writer.Write([]string{"event_id", "agent_id", "occurred_at", "received_at", "domain_id", "link_id", "action", "reason", "country", "device", "os", "browser", "destination", "revision", "risk_observation", "client_ip", "asn", "asn_organization"})
 	for _, row := range rows {
 		e := row.Event
 		destination := ""
@@ -190,7 +190,10 @@ func (s *Server) trafficAdmin(w http.ResponseWriter, r *http.Request) bool {
 			destination = *e.Destination
 		}
 		risk, _ := json.Marshal(e.Risk)
-		cells := []string{e.EventID, row.AgentID, e.OccurredAt.Format(time.RFC3339Nano), row.ReceivedAt.Format(time.RFC3339Nano), e.DomainID, e.LinkID, e.Action, e.ReasonCode, e.Country, e.Device, e.OS, e.Browser, destination, strconv.FormatInt(e.ConfigRevision, 10), string(risk)}
+		cells := []string{e.EventID, row.AgentID, e.OccurredAt.Format(time.RFC3339Nano), row.ReceivedAt.Format(time.RFC3339Nano), e.DomainID, e.LinkID, e.Action, e.ReasonCode, e.Country, e.Device, e.OS, e.Browser, destination, strconv.FormatInt(e.ConfigRevision, 10), string(risk), e.ClientIP, "", e.ASNOrganization}
+		if e.ASN != nil {
+			cells[len(cells)-2] = strconv.FormatUint(uint64(*e.ASN), 10)
+		}
 		for i, v := range cells {
 			trim := strings.TrimLeft(v, " \t\r\n")
 			if trim != "" && strings.ContainsAny(trim[:1], "=+-@") {
