@@ -186,3 +186,21 @@ B17 menambahkan `PHP_ASSET_ROOT`, `PHP_RELEASE_INPUT` dan command `control publi
 
 
 Penutupan B19 lokal: [CAPACITY_B19.md](CAPACITY_B19.md) dan [OPERATIONS.md](OPERATIONS.md) berisi hasil full-duration, scope, failure/restore dan batas yang masih terbuka. API 50/30m,300/15m,600/5m memenuhi gate lokal; Go lokal 300/15m,600/5m tanpa error/loss; real batch ingest 300 events/s menerima 270k dalam 15m dengan accounting cocok. Restore dataset 90k, crash queue SIGKILL, SQLITE_FULL/recovery dan actual ENOSPC Docker tmpfs lulus. Backend/agent race, GeoLite cleanup/retensi, dashboard/contract dan Docker image build lulus. Source Dockerfile pusat sekarang menyertakan risk module. Riwayat status B19 berjalan sebelumnya bukan status final; B20/gate lingkungan nyata belum selesai.
+
+### Penghapusan domain
+
+`DELETE /v1/admin/domains/{domainId}` memerlukan sesi owner, Origin/CSRF,
+serta JSON `hostname` dan `expectedRevision` (desired revision domain).
+Hostname harus sama persis; revision yang berubah menghasilkan 409.
+Respons sukses 200 berisi `{"deleted":true}`. Domain yang tidak ada menghasilkan 404.
+Penghapusan memakai transaksi dan lock publish, membersihkan shortlink,
+aturan domain/link dan riwayat konfigurasinya, token, snapshot, agent serta
+credential/manage/replay data terkait. Audit dan traffic historis dipertahankan.
+Hostname bisa didaftarkan lagi dengan identitas baru. Agent Go offline dapat
+memakai snapshot lama sampai lease berakhir; file instalasi harus dihentikan
+atau dibuang di VPS/hosting untuk penghentian langsung.
+
+Validasi: suite backend race, pengujian khusus konfirmasi/CSRF/credential,
+retensi traffic dan isolasi domain lain, 30 pengujian browser desktop/mobile,
+penghapusan domain sementara di staging, serta pemeriksaan UI production
+secara baca saja. Domain production yang ada tidak dihapus saat pengujian.

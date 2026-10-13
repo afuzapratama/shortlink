@@ -150,6 +150,25 @@ func (s *Server) management(w http.ResponseWriter, r *http.Request, actor string
 		return
 	}
 	if len(parts) == 2 && parts[0] == "domains" {
+		if r.Method == http.MethodDelete {
+			var input struct {
+				Hostname         string `json:"hostname"`
+				ExpectedRevision *int64 `json:"expectedRevision"`
+			}
+			if !s.decode(w, r, &input) {
+				return
+			}
+			if input.Hostname == "" || input.ExpectedRevision == nil || *input.ExpectedRevision < 0 {
+				s.fail(w, 422, "validation_failed", "Confirm the domain hostname and revision.")
+				return
+			}
+			if err := s.store.DeleteDomain(r.Context(), parts[1], input.Hostname, *input.ExpectedRevision, actor); err != nil {
+				s.resourceFailure(w, err, "")
+				return
+			}
+			s.json(w, 200, map[string]bool{"deleted": true})
+			return
+		}
 		if !s.method(w, r, http.MethodGet) {
 			return
 		}

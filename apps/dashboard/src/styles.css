@@ -16,3 +16,11 @@
 /* Public hostnames may exceed one mobile line. */
 .heading>div{min-width:0}.heading h1{overflow-wrap:anywhere}
 .traffic-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:16px}.table-wrap{overflow-x:auto;max-width:100%}.table-wrap table{width:100%;border-collapse:collapse}.table-wrap th,.table-wrap td{text-align:left;padding:12px;border-bottom:1px solid var(--border,#e6e8eb)}
+
+/* Keep domain installation panels and audit history compact. */
+.domain-tools-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+.domain-tools-grid>*{min-width:0}
+.audit-table{max-height:320px;overflow:auto;overscroll-behavior:contain}
+.audit-table thead th{position:sticky;top:0;background:var(--surface,#fff);z-index:1}
+.audit-table td:first-child{white-space:nowrap}
+@media(max-width:1000px){.domain-tools-grid{grid-template-columns:minmax(0,1fr)}}

@@ -462,3 +462,15 @@ versi lain. Pemulihan mengganti draft dan langsung menerapkan isi versi lama
 sebagai versi baru; agent memakai pembaruan setelah sinkronisasi.
 Simulator menjelaskan mode aturan aktif atau draft cakupan yang sedang diuji,
 tetap memeriksa cakupan lain, dan tidak mengubah traffic atau konfigurasi nyata.
+
+### Hapus domain dan tata letak detail (14 Oktober 2026)
+
+Detail domain menyediakan Hapus domain dengan konfirmasi hostname persis dan
+revision konfigurasi. Penghapusan atomik mencakup shortlink, aturan/riwayat
+konfigurasi terkait, token, snapshot, serta identitas dan akses manage agent.
+Domain lain, traffic historis dan audit tetap disimpan. Hostname dapat didaftarkan
+ulang dengan identitas baru. File agent di server tidak otomatis dihapus;
+snapshot Go offline tetap berlaku sampai lease habis. UI menjelaskan dampak ini.
+Audit domain menjadi tabel dua kolom, header tetap, scroll maksimal 320px dan
+bisa difokuskan dengan keyboard. Panel progres instalasi dan paket memakai dua
+kolom di desktop dan satu kolom di layar kecil.
