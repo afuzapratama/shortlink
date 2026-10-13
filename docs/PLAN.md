@@ -452,3 +452,13 @@ Koreksi owner: BEON-IPQuality tanpa kuota lookup harian. Field/batas harian hany
 Revisi owner: fokus BEON-IPQuality saja, provider eksternal ProxyCheck dihapus. Delapan flag boolean dapat dipilih per shortlink; flag terpilih true menuju fallback. Datacenter yang tidak dipilih tidak menolak akses. Simulator dan runtime Go/API memakai pilihan yang sama; Go memerlukan routingVersion 4 untuk daftar eksplisit. Pemeriksaan koneksi publik ARM/PHP aaPanel/cPanel online/ready dan applied revision cocok pada 13 Oktober 2026; kode flag baru tetap hanya dev lokal. [Detail BEON](IP_QUALITY.md).
 
 Persiapan staging/production: prototype UI dipisahkan ke mode prototype/port 5174 dan build dist-prototype. Dashboard nyata lokal/staging/production mengabaikan demo=1; bundle real tidak membawa fixture atau link preview. Build staging dist-staging dan production dist terpisah, contoh environment database/path/hostname terpisah tersedia. Pusat aaPanel test saat ini dikelola systemd (binary Go + dashboard statis Nginx), bukan Node/Go Project panel. Cutover publik menunggu penetapan hostname dan penyelesaian gate rilis; [ENVIRONMENTS.md](ENVIRONMENTS.md).
+
+### Kejelasan aturan aktif dan draft (14 Oktober 2026)
+
+Halaman aturan domain/global menampilkan versi aktif secara eksplisit. Daftar
+perubahan draft belum memengaruhi pengunjung sampai “Terapkan perubahan”.
+Riwayat menandai versi aktif dan menyediakan “Gunakan kembali” hanya untuk
+versi lain. Pemulihan mengganti draft dan langsung menerapkan isi versi lama
+sebagai versi baru; agent memakai pembaruan setelah sinkronisasi.
+Simulator menjelaskan mode aturan aktif atau draft cakupan yang sedang diuji,
+tetap memeriksa cakupan lain, dan tidak mengubah traffic atau konfigurasi nyata.
