@@ -40,7 +40,21 @@ export const events: TrafficEvent[] = Array.from({length:24},(_,i) => {
 export function applicableRules(link: Shortlink, list: ScopedRule[]) {
   return list.filter(r=>r.scope==='global'||(r.scope==='domain'&&r.scopeId===link.domainId)||(r.scope==='link'&&r.scopeId===link.id));
 }
-export function simulate(input: {country:string;device:Device;os:OperatingSystem;browser:BrowserFamily;bot:boolean}, list:ScopedRule[], link:Shortlink) {
+export function simulate(input: {country:string;device:Device;os:OperatingSystem;browser:BrowserFamily;bot:boolean;proxyDetected?:boolean;proxyStatus?:string}, list:ScopedRule[], link:Shortlink) {
+  if(link.routing){
+    const routing=link.routing;
+    const fallback=(id:string|null=null)=>({action:'fallback' as Action,ruleId:id,name:'Fallback shortlink',destination:routing.fallback});
+    if(input.bot||(routing.proxyCheck&&(input.proxyDetected||(routing.proxyUnknownFallback&&input.proxyStatus!=='known')))||Object.entries({country:input.country,device:input.device,os:input.os,browser:input.browser}).some(([key,value])=>routing[key as 'country'|'device'|'os'|'browser']!=='*'&&routing[key as 'country'|'device'|'os'|'browser']!==value))return fallback();
+    const allowed=new Map<string,boolean>();
+    for(const rule of applicableRules(link,list)){
+      if(!rule.enabled)continue;
+      const matches=(rule.country==='*'||rule.country===input.country)&&(rule.device==='*'||rule.device===input.device)&&(rule.os==='*'||rule.os===input.os)&&(rule.browser==='*'||rule.browser===input.browser)&&(rule.risk==='*'||input.bot);
+      if(rule.action==='redirect')allowed.set(rule.scope,(allowed.get(rule.scope)??false)||matches);
+      else if(matches)return fallback(rule.id);
+    }
+    if([...allowed.values()].some(value=>!value))return fallback();
+    return {action:'redirect' as Action,ruleId:null,name:'Tujuan shortlink',destination:link.destination};
+  }
   const rule=applicableRules(link,list).sort((a,b)=>Number(b.scope==='global'&&b.mandatory)-Number(a.scope==='global'&&a.mandatory)||a.priority-b.priority||({link:0,domain:1,global:2}[a.scope]-{link:0,domain:1,global:2}[b.scope])||a.id.localeCompare(b.id)).find(r=>r.enabled&&(r.country==='*'||r.country===input.country)&&(r.device==='*'||r.device===input.device)&&(r.os==='*'||r.os===input.os)&&(r.browser==='*'||r.browser===input.browser)&&(r.risk==='*'||input.bot));
   const action=(rule?.action??'redirect') as Action;
   const destination=action==='redirect'||action==='fallback'?(rule?.destinationSource==='custom'?rule.destination??null:link.destination):null;

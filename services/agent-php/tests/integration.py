@@ -6,7 +6,7 @@ def tok():return base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip('=')
 def mac(cred,purpose,payload):return hmac.new(hashlib.sha256(cred.encode()).hexdigest().encode(),b'shortlink-probe-v1:'+purpose.encode()+b':'+payload,hashlib.sha256).hexdigest()
 def freeport():
  with socket.socket() as s:s.bind(('127.0.0.1',0));return s.getsockname()[1]
-state={'token':tok(),'installation':tok(),'agent':tok(),'credential':tok(),'contextCalls':0,'enrollCalls':0,'events':{},'proof':None,'loseEnrollment':False,'decisionMode':'redirect','ready':True,'probeCalls':0,'retryFirst':False}
+state={'token':tok(),'installation':tok(),'agent':tok(),'credential':tok(),'contextCalls':0,'enrollCalls':0,'events':{},'proof':None,'loseEnrollment':False,'manageKey':tok(),'manageSession':None,'manageCSRF':tok(),'openingURL':'','decisionMode':'redirect','ready':True,'probeCalls':0,'retryFirst':False}
 class Central(http.server.BaseHTTPRequestHandler):
  def log_message(self,*a):pass
  def reply(self,status,body,headers={}):
@@ -31,6 +31,16 @@ class Central(http.server.BaseHTTPRequestHandler):
    if state['loseEnrollment']:state['loseEnrollment']=False;self.close_connection=True;return
    return self.reply(200,{'agentId':state['agent'],'credential':state['credential'],'bootstrap':boot})
   if self.headers.get('Authorization')!='Bearer '+state['credential']:return self.reply(401,{})
+  if self.path=='/v1/agents/manage/exchange':
+   if b.get('key')!=state['manageKey'] or state['manageSession'] is not None:return self.reply(401,{})
+   state['manageSession']=tok();return self.reply(200,{'session':state['manageSession'],'csrf':state['manageCSRF'],'expiresAt':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime(time.time()+900))})
+  if self.path=='/v1/agents/manage/session':
+   if b.get('session')!=state['manageSession'] or state['manageSession'] is None:return self.reply(401,{})
+   if b.get('action') in ['update','logout'] and b.get('csrf')!=state['manageCSRF']:return self.reply(403,{})
+   if b.get('action')=='logout':state['manageSession']=None;return self.reply(200,{'ok':True})
+   if b.get('action')=='update':state['openingURL']=b['openingUrl']
+   return self.reply(200,{'domain':{'hostname':'localhost','openingUrl':state['openingURL'],'desiredRevision':1},'links':[{'id':'l','slug':'hello','destination':'https://example.org/published','state':'published','clicks':1}],'nextCursor':'','csrf':state['manageCSRF']})
+  if self.path=='/v1/agents/opening':return self.reply(200,{'domainId':'domain-test','openingUrl':state['openingURL'],'published':b.get('slug')=='hello' and state['decisionMode']!='missing'})
   if self.path=='/v1/agents/probe':
    state['probeCalls']+=1
    raw=json.dumps({'nonce':b['nonce'],'domainId':b['domainId'],'revision':1,'geoRelease':'test-release','ready':True,'version':b['version']},separators=(',',':')).encode()
@@ -96,8 +106,22 @@ with tempfile.TemporaryDirectory(prefix='shortlink-php-test-') as temp:
   assert len(state['events'])==0 and state['probeCalls']==1
   state['retryFirst']=True;s,_,h=request('/hello',headers={'X-Forwarded-For':'1.1.1.1','User-Agent':'PHP integration'});assert s==302 and h['Location']=='https://example.org/published'
   assert len(state['events'])==1;event=next(iter(state['events'].values()));assert event['calls']==2 and event['body']['signals']['ip']=='127.0.0.1'
-  for mode,expected in [('block',403),('missing',404),('down',503),('mismatch',503),('badtarget',503)]:
+  for mode,expected in [('block',403),('missing',503),('down',503),('mismatch',503),('badtarget',503)]:
    state['decisionMode']=mode;s,_,h=request('/hello');assert s==expected and 'Location' not in h,(mode,s)
+  before=len(state['events']);state['openingURL']='https://example.org/opening';state['decisionMode']='missing'
+  for path in ['/', '/not-found','/a/b']:
+   s,_,h=request(path);assert s==302 and h['Location']==state['openingURL'],(path,s)
+  assert len(state['events'])==before
+  state['openingURL']='';s,_,h=request('/');assert s==503 and 'Location' not in h
+  s,html,_=request('/__agent/manage');assert s==200 and 'Key akses manage' in html
+  s,html,_=request('/__agent/manage',{'action':'login','key':tok()},headers={'Origin':'https://other.example'});assert s==403
+  s,html,h=request('/__agent/manage',{'action':'login','key':state['manageKey']});assert s==303 and state['manageKey'] not in html and 'HttpOnly' in h['Set-Cookie']
+  s,html,_=request('/__agent/manage');assert s==200 and 'Shortlink domain ini' in html and 'https://example.org/published' in html
+  s,_,_=request('/__agent/manage',{'action':'update','csrf':'wrong','expectedRevision':'1','openingUrl':'https://example.org/managed'});assert s==403
+  s,_,_=request('/__agent/manage',{'action':'update','csrf':state['manageCSRF'],'expectedRevision':'1','openingUrl':'https://example.org/managed'});assert s==303
+  s,_,h=request('/');assert s==302 and h['Location']=='https://example.org/managed'
+  s,_,_=request('/__agent/manage',{'action':'logout','csrf':state['manageCSRF']});assert s==303
+  s,html,_=request('/__agent/manage');assert s==200 and 'Key akses manage' in html
   state['decisionMode']='slow';started=time.monotonic();s,_,h=request('/hello');assert s==503 and 'Location' not in h and time.monotonic()-started<4
   state['decisionMode']='redirect'
   s,_,h=request('/.well-known/shortlink-ready');assert s==404

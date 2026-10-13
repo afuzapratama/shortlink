@@ -342,12 +342,16 @@ func (s *Store) PublishLink(ctx context.Context, id string, expected, target int
 	if !allowed {
 		return result, ErrPrerequisite
 	}
+	routing := l.Routing
+	if l.DraftRouting != nil {
+		routing = l.DraftRouting
+	}
 	destination := l.Destination
 	if l.DraftDestination != nil {
 		destination = *l.DraftDestination
 	}
 	if target > 0 {
-		if err = tx.QueryRow(ctx, "SELECT destination FROM link_history WHERE link_id=$1 AND revision=$2", id, target).Scan(&destination); err != nil {
+		if err = tx.QueryRow(ctx, "SELECT destination,routing FROM link_history WHERE link_id=$1 AND revision=$2", id, target).Scan(&destination, &routing); err != nil {
 			return result, err
 		}
 	}
@@ -355,14 +359,23 @@ func (s *Store) PublishLink(ctx context.Context, id string, expected, target int
 	if err = tx.QueryRow(ctx, "SELECT hostname FROM domains WHERE id=$1", l.DomainID).Scan(&host); err != nil {
 		return result, err
 	}
-	if !policy.URL(destination, host) {
+	if !policy.URL(destination, host) || policy.ValidateRouting(routing, host) != nil {
 		return result, ErrPolicy
 	}
+	if routing != nil {
+		var compatible bool
+		if err = tx.QueryRow(ctx, "SELECT mode='api' OR EXISTS(SELECT 1 FROM agents WHERE domain_id=$1 AND revoked_at IS NULL AND routing_version >= $2) FROM domains WHERE id=$1", l.DomainID, requiredRoutingVersion(routing)).Scan(&compatible); err != nil {
+			return result, err
+		}
+		if !compatible {
+			return result, ErrRoutingCapability
+		}
+	}
 	result.Revision = l.Revision + 1
-	if _, err = tx.Exec(ctx, "UPDATE links SET state='published',destination=$2,draft_destination=NULL,revision=$3 WHERE id=$1", id, destination, result.Revision); err != nil {
+	if _, err = tx.Exec(ctx, "UPDATE links SET state='published',destination=$2,draft_destination=NULL,routing=$4,draft_routing=NULL,revision=$3 WHERE id=$1", id, destination, result.Revision, routing); err != nil {
 		return result, err
 	}
-	if _, err = tx.Exec(ctx, "INSERT INTO link_history(link_id,revision,destination) VALUES($1,$2,$3)", id, result.Revision, destination); err != nil {
+	if _, err = tx.Exec(ctx, "INSERT INTO link_history(link_id,revision,destination,routing) VALUES($1,$2,$3,$4)", id, result.Revision, destination, routing); err != nil {
 		return result, err
 	}
 	if err = refresh(ctx, tx, ids, seed, &result); err != nil {
@@ -458,7 +471,11 @@ func (s *Store) Simulate(ctx context.Context, link string, signals policy.Signal
 	if err = json.Unmarshal(protectionRaw, &protection); err != nil {
 		return policy.Decision{}, err
 	}
-	result := engine.EvaluateProtection(link, destination, signals, protection)
+	routing := l.Routing
+	if preview != nil && l.DraftRouting != nil {
+		routing = l.DraftRouting
+	}
+	result := engine.EvaluateRouting(link, destination, routing, signals, protection)
 	result.EventID = security.Token()
 	result.ConfigRevision = d.DesiredRevision
 	return result, tx.Commit(ctx)

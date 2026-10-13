@@ -33,35 +33,43 @@ type ScopedRule struct {
 	ScopeID *string `json:"scopeId"`
 }
 type Signals struct {
-	ASN                 *uint32 `json:"asn"`
-	Country             string  `json:"country"`
-	Device              string  `json:"device"`
-	OS                  string  `json:"os"`
-	Browser             string  `json:"browser"`
-	KnownBot            bool    `json:"knownBot"`
-	SuspectedAutomation bool    `json:"suspectedAutomation"`
-	TorExit             bool    `json:"torExit"`
-	ReputationFlag      bool    `json:"reputationFlag"`
-	RateLimited         bool    `json:"rateLimited"`
-	BotCategory         string  `json:"botCategory"`
-	FeedStatus          string  `json:"feedStatus"`
-	TorStatus           string  `json:"torStatus"`
-	ReputationStatus    string  `json:"reputationStatus"`
-	OSVersion           *string `json:"osVersion"`
-	BrowserVersion      *string `json:"browserVersion"`
-	DeviceBrand         *string `json:"deviceBrand"`
-	DeviceModel         *string `json:"deviceModel"`
+	IPQuality           *IPQualityFlags `json:"ipQuality,omitempty"`
+	ProxyDetected       bool            `json:"proxyDetected"`
+	ProxyStatus         string          `json:"proxyStatus"`
+	ASN                 *uint32         `json:"asn"`
+	Country             string          `json:"country"`
+	Device              string          `json:"device"`
+	OS                  string          `json:"os"`
+	Browser             string          `json:"browser"`
+	KnownBot            bool            `json:"knownBot"`
+	SuspectedAutomation bool            `json:"suspectedAutomation"`
+	TorExit             bool            `json:"torExit"`
+	ReputationFlag      bool            `json:"reputationFlag"`
+	RateLimited         bool            `json:"rateLimited"`
+	BotCategory         string          `json:"botCategory"`
+	FeedStatus          string          `json:"feedStatus"`
+	TorStatus           string          `json:"torStatus"`
+	ReputationStatus    string          `json:"reputationStatus"`
+	OSVersion           *string         `json:"osVersion"`
+	BrowserVersion      *string         `json:"browserVersion"`
+	DeviceBrand         *string         `json:"deviceBrand"`
+	DeviceModel         *string         `json:"deviceModel"`
+}
+type ProxyObservation struct {
+	Status   string `json:"status"`
+	Detected bool   `json:"detected"`
 }
 type Decision struct {
-	EventID        string           `json:"eventId"`
-	Risk           *RiskObservation `json:"risk,omitempty"`
-	Action         string           `json:"action"`
-	ReasonCode     string           `json:"reasonCode"`
-	RuleID         *string          `json:"ruleId"`
-	ConfigRevision int64            `json:"configRevision"`
-	GeoRelease     *string          `json:"geoRelease"`
-	FeedVersion    *string          `json:"feedVersion"`
-	Destination    *string          `json:"destination"`
+	Proxy          *ProxyObservation `json:"proxy,omitempty"`
+	EventID        string            `json:"eventId"`
+	Risk           *RiskObservation  `json:"risk,omitempty"`
+	Action         string            `json:"action"`
+	ReasonCode     string            `json:"reasonCode"`
+	RuleID         *string           `json:"ruleId"`
+	ConfigRevision int64             `json:"configRevision"`
+	GeoRelease     *string           `json:"geoRelease"`
+	FeedVersion    *string           `json:"feedVersion"`
+	Destination    *string           `json:"destination"`
 }
 
 func member(value, list string) bool {

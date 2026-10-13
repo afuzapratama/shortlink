@@ -16,3 +16,7 @@ __pycache__/
 
 # Local UI captures may contain session or enrollment information.
 docs/artifacts/
+
+# Explicitly isolated dashboard builds.
+dist-staging/
+dist-prototype/

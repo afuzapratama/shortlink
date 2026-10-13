@@ -1,5 +1,7 @@
 # Agent Go — B06–B09
 
+Revisi B20 lokal: [URL pembuka dan manage agent](AGENT_MANAGE.md). Root/missing kini 302 ke opening atau 503 bila kosong; route internal tetap terpisah. Bagian B06–B09 berikut adalah baseline awal, bukan perilaku root terbaru.
+
 Runtime lokal tersedia di `services/agent`. Redirect memakai lookup snapshot immutable di memori, tanpa API/SQL per klik. Agent polling pusat setiap 15–30 detik dengan jitter; timeout HTTP 10 detik, redirect HTTP dari pusat tidak diikuti. HTTPS wajib, kecuali development HTTP dengan IP loopback. GeoLite tersedia B07 (lihat [GEOIP.md](GEOIP.md)); aturan/publish B08 tersedia. Antrean/event B12 tersedia; installer CLI B10 dan readiness B11 tersedia lokal. Bot/feed/proteksi B13 tersedia; acceptance VPS/TLS/ARM belum diuji.
 
 ## Coba lokal tanpa DNS

@@ -7,6 +7,7 @@ export type OperatingSystem = 'ios' | 'android' | 'windows' | 'macos' | 'linux' 
 export type BrowserFamily = 'chrome' | 'safari' | 'firefox' | 'edge' | 'samsung_internet' | 'opera' | 'other' | 'unknown';
 export interface Capabilities { localGeo: boolean; persistentQueue: boolean; challenge: boolean; }
 export interface Domain {
+ openingUrl?:string;
   id: string; hostname: string; mode: AgentMode; readiness: Readiness;
   connection: 'online' | 'idle' | 'offline' | 'unknown';
   desiredRevision: number; appliedRevision: number | null;
@@ -14,7 +15,13 @@ export interface Domain {
 }
 export interface ReadinessCheck { code:string; status:'pass'|'fail'|'not_applicable'; message:string; }
 export interface InstallationStatus { domain:Domain;agentId:string;version:string;geoRelease:string|null;checkedAt:string;checks:ReadinessCheck[];lastProbe:{checkedAt:string;checks:ReadinessCheck[]}|null; }
+export type IPQualityFlag='proxy'|'vpn'|'tor'|'datacenter'|'botnet'|'spam'|'malware'|'attacker';
+export interface LinkRouting {
+ ipQualityBlock?:IPQualityFlag[];
+ proxyCheck?:boolean;proxyUnknownFallback?:boolean;fallback:string; country:string; device:Device|'*'; os:OperatingSystem|'*'; browser:BrowserFamily|'*';
+}
 export interface Shortlink {
+ routing?:LinkRouting; draftRouting?:LinkRouting;
   id: string; domainId: string; slug: string; destination: string;
   state: 'draft' | 'published'; revision: number; clicks: number;
   /** Published destination stays unchanged until a destination draft is published. */
@@ -36,6 +43,7 @@ export interface RuleSet extends RuleBinding {
   id: string; revision: number; publishedRevision?:number|null; state: 'draft' | 'published'; rules: Rule[];
 }
 export interface Decision {
+ proxy?:{status:string;detected:boolean};
   eventId: string; action: Action; reasonCode: string; ruleId: string | null;
   configRevision: number; geoRelease: string | null; feedVersion: string | null;
   destination: string | null;

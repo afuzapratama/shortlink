@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite apps/dashboard --host 127.0.0.1",
-    "build": "tsc -p apps/dashboard/tsconfig.json && vite build apps/dashboard",
+    "build": "tsc -p apps/dashboard/tsconfig.json && vite build apps/dashboard && node scripts/check-dashboard-build.mjs",
     "preview": "vite preview apps/dashboard --host 127.0.0.1",
     "test:e2e": "playwright test",
     "check:contracts": "node scripts/check-contracts.mjs",
-    "test:live": "bash scripts/test-live.sh"
+    "test:live": "bash scripts/test-live.sh",
+    "dev:prototype": "vite apps/dashboard --mode prototype --host 127.0.0.1 --port 5174",
+    "build:staging": "tsc -p apps/dashboard/tsconfig.json && vite build apps/dashboard --mode staging && node scripts/check-dashboard-build.mjs apps/dashboard/dist-staging",
+    "build:prototype": "tsc -p apps/dashboard/tsconfig.json && vite build apps/dashboard --mode prototype"
   },
   "engines": {
     "node": ">=22.12.0"

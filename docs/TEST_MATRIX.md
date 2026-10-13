@@ -68,3 +68,22 @@ B19 terbaru: worker AggregateEvents memakai SET LOCAL jit=off khusus transaksi b
 Penutupan B19 lokal: [CAPACITY_B19.md](CAPACITY_B19.md) dan [OPERATIONS.md](OPERATIONS.md) berisi hasil full-duration, scope, failure/restore dan batas yang masih terbuka. API 50/30m,300/15m,600/5m memenuhi gate lokal; Go lokal 300/15m,600/5m tanpa error/loss; real batch ingest 300 events/s menerima 270k dalam 15m dengan accounting cocok. Restore dataset 90k, crash queue SIGKILL, SQLITE_FULL/recovery dan actual ENOSPC Docker tmpfs lulus. Backend/agent race, GeoLite cleanup/retensi, dashboard/contract dan Docker image build lulus. Source Dockerfile pusat sekarang menyertakan risk module. Riwayat status B19 berjalan sebelumnya bukan status final; B20/gate lingkungan nyata belum selesai.
 
 Hasil akhir publik: backup/restore dataset 388.790 events dengan fingerprint seluruh 27 tabel cocok; native ARM SQLITE_FULL/SIGKILL/ENOSPC lulus; kedua PHP fail closed saat outage 10 detik. API/PHP throughput tinggi tetap belum memenuhi gate. Detail scope/durasi/generator: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).
+
+## BEON-IPQuality — revisi dev 13 Oktober 2026
+
+| Cakupan | Hasil / batas |
+| --- | --- |
+| API privat nyata dari file owner | GET single IP 8.8.8.8 langsung dan melalui pusat lokal: known, tanpa flag positif; key tidak ditampilkan |
+| Kontrak parser | Proxy/VPN/Tor/botnet positif, score/datacenter tanpa flag tidak dianggap proxy, IP respons tidak cocok dan field hilang ditolak |
+| Failure | 503 stale, 429, timeout dan redirect menjadi unknown; aturan unknown fallback tetap berlaku |
+| Settings | Provider/URL/key dari dashboard; key terenkripsi/redacted, CSRF/revision; tujuan baru meminta key baru dan membuang cache lama |
+| Routing | Botnet dari provider menuju fallback per link; protokol agent tetap kompatibel |
+| UI | Pilih BEON, simpan URL/key, reload, ganti/hapus key, desktop/mobile |
+| Kapasitas | BEON aktif bersama shortlink 100–300 klik/detik belum dibenchmark; banyak IP unik bisa terkena limiter/kuota |
+| Publik | Revisi provider ini belum dipasang ke VPS/hosting; gate B19/B20 lainnya tetap terbuka |
+
+Koreksi BEON tanpa kuota harian: uji backend memastikan BEON tetap menerima lookup setelah counter melewati batas ProxyCheck; UI desktop/mobile memastikan input batas harian hilang untuk BEON dan muncul kembali untuk ProxyCheck.
+
+Revisi BEON-only: delapan flag terpilih diuji masing-masing; datacenter tidak terpilih dan daftar kosong tidak menolak; flags hilang menjadi unknown. Go cache flag mentah diuji dengan pergantian pilihan; publish/downgrade routingVersion 3 terhadap daftar baru ditolak. Koneksi publik ARM/PHP aaPanel/cPanel diuji dengan heartbeat, request shortlink dan probe: ketiganya online/ready, revision cocok sekitar 19.22 WIB 13 Oktober 2026, masih rilis publik lama.
+
+Smoke aktual terakhir BEON: /health 503 unhealthy dan lookup single IP 503 reputation_unavailable. Integrasi memperlihatkan unavailable dan mengikuti unknown fallback; bukan acceptance lookup known pada dataset saat ini. Domain lokal gopane.com masih draft/unknown, belum enrollment.

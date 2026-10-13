@@ -989,7 +989,7 @@
             }
           }
         ],
-        "description": "Save destination draft with expectedRevision. Published destination/URL/analytics remain unchanged until publish. Reject changing the domain or slug of a previously published link."
+        "description": "Save destination and optional link routing together as an optimistic draft. Published destination/fallback/audience remain unchanged until publish. Omitted routing preserves existing configuration. Domain/slug of a published link are immutable."
       },
       "get": {
         "operationId": "getLink",
@@ -3718,6 +3718,460 @@
           }
         }
       }
+    },
+    "/v1/admin/system/proxycheck": {
+      "get": {
+        "operationId": "getProxyCheckSettings",
+        "summary": "getProxyCheckSettings",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "settings",
+                    "lastStatus"
+                  ],
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/components/schemas/ProxySettings"
+                    },
+                    "lastStatus": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateProxyCheckSettings",
+        "summary": "updateProxyCheckSettings",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxySettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxySettingsWrite"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/admin/system/proxycheck/test": {
+      "post": {
+        "operationId": "testProxyCheck",
+        "summary": "testProxyCheck",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyTestInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/agents/proxycheck": {
+      "post": {
+        "operationId": "lookupProxyCheckForAgent",
+        "summary": "lookupProxyCheckForAgent",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyTestInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/domains/{domainId}/opening": {
+      "patch": {
+        "operationId": "updateDomainOpening",
+        "summary": "updateDomainOpening",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Domain"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpeningWrite"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "domainId",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/v1/admin/domains/{domainId}/manage-key": {
+      "post": {
+        "operationId": "issueAgentManageKey",
+        "summary": "issueAgentManageKey",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManageKey"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "domainId",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/v1/agents/opening": {
+      "post": {
+        "operationId": "getAgentOpening",
+        "summary": "getAgentOpening",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpeningState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpeningQuery"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/manage/exchange": {
+      "post": {
+        "operationId": "exchangeAgentManageKey",
+        "summary": "exchangeAgentManageKey",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManageGrant"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManageExchange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/manage/session": {
+      "post": {
+        "operationId": "agentManageSession",
+        "summary": "agentManageSession",
+        "security": [
+          {
+            "AgentCredential": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ManageView"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManageSessionInput"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3844,6 +4298,11 @@
           },
           "capabilities": {
             "$ref": "#/components/schemas/Capabilities"
+          },
+          "openingUrl": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Root and missing slug redirect target. Empty means 503."
           }
         },
         "required": [
@@ -3940,6 +4399,12 @@
             "type": "string",
             "format": "uri",
             "description": "Optional pending destination. Published destination remains unchanged until publish; absent when no draft exists."
+          },
+          "routing": {
+            "$ref": "#/components/schemas/LinkRouting"
+          },
+          "draftRouting": {
+            "$ref": "#/components/schemas/LinkRouting"
           }
         },
         "required": [
@@ -3967,6 +4432,9 @@
             "type": "string",
             "format": "uri",
             "description": "HTTP(S) only, no embedded credentials or redirect loop."
+          },
+          "routing": {
+            "$ref": "#/components/schemas/LinkRouting"
           }
         },
         "required": [
@@ -4428,6 +4896,13 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 128
+          },
+          "routingVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4,
+            "default": 0,
+            "description": "CLI support for per-link fallback/audience. API PHP decisions run centrally."
           }
         },
         "required": [
@@ -4481,6 +4956,9 @@
           "userAgent": {
             "type": "string",
             "maxLength": 4096
+          },
+          "ipQuality": {
+            "$ref": "#/components/schemas/IPQualityFlags"
           }
         },
         "required": [
@@ -4567,6 +5045,9 @@
           },
           "risk": {
             "$ref": "#/components/schemas/RiskObservation"
+          },
+          "proxy": {
+            "$ref": "#/components/schemas/ProxyObservation"
           }
         },
         "required": [
@@ -4642,6 +5123,21 @@
               "automation",
               "unknown"
             ]
+          },
+          "proxyDetected": {
+            "type": "boolean",
+            "default": false
+          },
+          "proxyStatus": {
+            "type": "string",
+            "enum": [
+              "known",
+              "unavailable"
+            ],
+            "description": "Synthetic simulator signal; never queries provider."
+          },
+          "ipQuality": {
+            "$ref": "#/components/schemas/IPQualityFlags"
           }
         },
         "required": [
@@ -4887,6 +5383,12 @@
             "minimum": 0,
             "maximum": 1,
             "description": "1 means B13 parser/feed/rate/mode support; optional for old agents."
+          },
+          "routingVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4,
+            "default": 0
           }
         },
         "required": [
@@ -5361,6 +5863,9 @@
             "type": "integer",
             "minimum": 0,
             "description": "Required by PATCH; omitted on initial create."
+          },
+          "routing": {
+            "$ref": "#/components/schemas/LinkRouting"
           }
         },
         "required": [
@@ -6682,6 +7187,460 @@
             "type": "string",
             "minLength": 43,
             "maxLength": 43
+          }
+        }
+      },
+      "LinkRouting": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fallback",
+          "country",
+          "device",
+          "os",
+          "browser"
+        ],
+        "properties": {
+          "fallback": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO country, unknown, or *"
+          },
+          "device": {
+            "type": "string",
+            "enum": [
+              "*",
+              "mobile",
+              "tablet",
+              "desktop",
+              "unknown"
+            ]
+          },
+          "os": {
+            "type": "string",
+            "enum": [
+              "*",
+              "ios",
+              "android",
+              "windows",
+              "macos",
+              "linux",
+              "chromeos",
+              "other",
+              "unknown"
+            ]
+          },
+          "browser": {
+            "type": "string",
+            "enum": [
+              "*",
+              "chrome",
+              "safari",
+              "firefox",
+              "edge",
+              "samsung_internet",
+              "opera",
+              "other",
+              "unknown"
+            ]
+          },
+          "proxyCheck": {
+            "type": "boolean",
+            "default": false
+          },
+          "proxyUnknownFallback": {
+            "type": "boolean",
+            "default": false
+          },
+          "ipQualityBlock": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "proxy",
+                "vpn",
+                "tor",
+                "datacenter",
+                "botnet",
+                "spam",
+                "malware",
+                "attacker"
+              ]
+            },
+            "description": "Flags whose true value routes to the link fallback. Empty array denies no IP flags. Omitted preserves legacy proxy/vpn/tor/botnet behavior."
+          }
+        }
+      },
+      "ProxyObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "detected": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "detected"
+        ]
+      },
+      "ProxySettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "enabled",
+          "hasKey",
+          "dailyBudget",
+          "queriesToday",
+          "provider",
+          "baseUrl"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "hasKey": {
+            "type": "boolean"
+          },
+          "dailyBudget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "queriesToday": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "beon"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      },
+      "ProxyResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "detected",
+          "expiresAt"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "known",
+              "disabled",
+              "unavailable",
+              "busy",
+              "invalid_ip",
+              "provider_limited",
+              "denied",
+              "budget_exhausted",
+              "invalid_response"
+            ]
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "warning": {
+            "type": "boolean"
+          },
+          "flags": {
+            "$ref": "#/components/schemas/IPQualityFlags"
+          }
+        }
+      },
+      "ProxySettingsWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedRevision",
+          "enabled"
+        ],
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "dailyBudget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "Required when provider is ProxyCheck; ignored for BEON (no daily cap)."
+          },
+          "apiKey": {
+            "type": "string",
+            "maxLength": 256,
+            "writeOnly": true
+          },
+          "removeKey": {
+            "type": "boolean",
+            "default": false
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "beon"
+            ]
+          },
+          "baseUrl": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      },
+      "ProxyTestInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ip"
+        ],
+        "properties": {
+          "ip": {
+            "type": "string",
+            "maxLength": 45
+          }
+        }
+      },
+      "OpeningWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "openingUrl",
+          "expectedRevision"
+        ],
+        "properties": {
+          "openingUrl": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ManageKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "expiresAt",
+          "url"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "One-use access key; never place in a URL."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "OpeningQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "description": "Empty slug is root/public missing path; exact slug checks published existence for HEAD."
+      },
+      "OpeningState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "openingUrl",
+          "published",
+          "domainId"
+        ],
+        "properties": {
+          "openingUrl": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "domainId": {
+            "type": "string"
+          }
+        }
+      },
+      "ManageExchange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        }
+      },
+      "ManageGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session",
+          "csrf",
+          "expiresAt"
+        ],
+        "properties": {
+          "session": {
+            "type": "string"
+          },
+          "csrf": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ManageSessionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session",
+          "action"
+        ],
+        "properties": {
+          "session": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "view",
+              "update",
+              "logout"
+            ]
+          },
+          "csrf": {
+            "type": "string"
+          },
+          "openingUrl": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "after": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "description": "Agent-bound session; update/logout require CSRF. Server derives domain from authenticated agent; no arbitrary domain/link mutation."
+      },
+      "ManageView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "domain",
+          "links",
+          "nextCursor",
+          "csrf"
+        ],
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/Domain"
+          },
+          "links": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/Shortlink"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          },
+          "csrf": {
+            "type": "string"
+          }
+        }
+      },
+      "IPQualityFlags": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proxy",
+          "vpn",
+          "tor",
+          "datacenter",
+          "botnet",
+          "spam",
+          "malware",
+          "attacker"
+        ],
+        "properties": {
+          "proxy": {
+            "type": "boolean"
+          },
+          "vpn": {
+            "type": "boolean"
+          },
+          "tor": {
+            "type": "boolean"
+          },
+          "datacenter": {
+            "type": "boolean"
+          },
+          "botnet": {
+            "type": "boolean"
+          },
+          "spam": {
+            "type": "boolean"
+          },
+          "malware": {
+            "type": "boolean"
+          },
+          "attacker": {
+            "type": "boolean"
           }
         }
       }

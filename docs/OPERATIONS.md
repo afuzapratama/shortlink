@@ -1,6 +1,6 @@
 # B19 — Operasi dan pengujian kapasitas
 
-B19 lokal selesai sesuai [CAPACITY_B19.md](CAPACITY_B19.md). Pengujian nyata kini mencakup VPS ARM bersih, HTTPS, PHP aaPanel/cPanel, Go 300 RPS/15 menit, outage 10 detik dan backup/restore 388.790 events. **Gate kapasitas PHP/API belum lulus pada VPS pusat 2 vCPU**; tetap B19 sebelum penutupan deployment/B20. Hasil dan batas pengujian: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).
+B19 lokal selesai sesuai [CAPACITY_B19.md](CAPACITY_B19.md). Pengujian nyata kini mencakup VPS ARM bersih, HTTPS, PHP aaPanel/cPanel, Go 300 RPS/15 menit, outage 10 detik dan backup/restore 388.790 events. **Gate kapasitas PHP/API belum lulus pada VPS pusat 2 vCPU**; pekerjaan kapasitas B19 tetap terbuka. Review B20 sudah dimulai, dengan status dan runbook di [RELEASE_B20.md](RELEASE_B20.md). Hasil dan batas pengujian: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).
 
 ## Backup dan restore pusat
 

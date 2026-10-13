@@ -39,6 +39,7 @@ func main() {
 	snapshot.Domain.ID = "demo-domain"
 	snapshot.Domain.Hostname = "agent.example.test"
 	snapshot.Domain.Mode = "local"
+	snapshot.Domain.OpeningURL = "https://example.org/?source=shortlink-opening-demo"
 	snapshot.Links = []runtime.Link{{ID: "hello-link", DomainID: "demo-domain", Slug: "hello", Destination: "https://example.org/?source=shortlink-demo", State: "published"}}
 	snapshot.Rules = []policy.ScopedRule{}
 	payload, _ := json.Marshal(snapshot)

@@ -389,7 +389,7 @@ func (i *Installer) enroll(ctx context.Context, token string) error {
 	if e = i.save(); e != nil {
 		return e
 	}
-	res, e := i.request(ctx, "POST", "/v1/agents/enroll", map[string]string{"token": token, "installationId": i.State.InstallationID, "installationProof": i.State.Proof, "hostname": i.State.Bootstrap.Hostname, "method": "cli", "version": runtime.Version}, false)
+	res, e := i.request(ctx, "POST", "/v1/agents/enroll", map[string]any{"routingVersion": 4, "token": token, "installationId": i.State.InstallationID, "installationProof": i.State.Proof, "hostname": i.State.Bootstrap.Hostname, "method": "cli", "version": runtime.Version}, false)
 	if e != nil {
 		return e
 	}
@@ -625,10 +625,26 @@ func (i *Installer) writeRuntime() error {
 		return e
 	}
 	caddy := fmt.Sprintf("{\n admin off\n}\n%s {\n reverse_proxy 127.0.0.1:%d {\n header_up X-Forwarded-For {remote_host}\n }\n}\n", i.State.Bootstrap.Hostname, i.State.Port)
-	if e = atomic(filepath.Join(i.Root, "Caddyfile"), []byte(caddy)); e != nil {
-		return e
+	// Existing proxy sites and operator settings belong to the operator.
+	caddyPath := filepath.Join(i.Root, "Caddyfile")
+	if _, err := os.Lstat(caddyPath); errors.Is(err, os.ErrNotExist) {
+		if e = atomic(caddyPath, []byte(caddy)); e != nil {
+			return e
+		}
+	} else if err != nil {
+		return err
 	}
-	return atomic(filepath.Join(i.Root, "compose.yml"), []byte(i.composeFile()))
+	composePath := filepath.Join(i.Root, "compose.yml")
+	content := []byte(i.composeFile())
+	if existing, err := privateRead(composePath, 128<<10); err == nil {
+		content, e = updateComposeImage(existing, i.State.Image, i.State.ProxyImage)
+		if e != nil {
+			return e
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return atomic(composePath, content)
 }
 func quoted(s string) string {
 	raw, _ := json.Marshal(strings.ReplaceAll(s, "$", "$$"))

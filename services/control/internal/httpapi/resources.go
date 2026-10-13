@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"shortlink.local/control/internal/security"
 	"shortlink.local/control/internal/store"
+	"shortlink.local/policy"
 )
 
 var hostnamePattern = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
@@ -209,10 +210,11 @@ func (s *Server) management(w http.ResponseWriter, r *http.Request, actor string
 }
 func (s *Server) writeLink(w http.ResponseWriter, r *http.Request, id, actor string) {
 	var input struct {
-		DomainID         string `json:"domainId"`
-		Slug             string `json:"slug"`
-		Destination      string `json:"destination"`
-		ExpectedRevision *int64 `json:"expectedRevision"`
+		Routing          *policy.LinkRouting `json:"routing"`
+		DomainID         string              `json:"domainId"`
+		Slug             string              `json:"slug"`
+		Destination      string              `json:"destination"`
+		ExpectedRevision *int64              `json:"expectedRevision"`
 	}
 	if !s.decode(w, r, &input) {
 		return
@@ -227,7 +229,7 @@ func (s *Server) writeLink(w http.ResponseWriter, r *http.Request, id, actor str
 		return
 	}
 	destination, valid := destinationURL(input.Destination, domain.Hostname)
-	if !valid || input.Slug != "" && !slugPattern.MatchString(input.Slug) {
+	if input.Slug == "__agent" || !valid || policy.ValidateRouting(input.Routing, domain.Hostname) != nil || input.Slug != "" && !slugPattern.MatchString(input.Slug) {
 		s.fail(w, 400, "validation_failed", "Use a valid HTTP/HTTPS destination without credentials or a loop, and a valid slug.")
 		return
 	}
@@ -235,14 +237,14 @@ func (s *Server) writeLink(w http.ResponseWriter, r *http.Request, id, actor str
 		if input.Slug == "" {
 			input.Slug = "link-" + security.Token()[:12]
 		}
-		l, err := s.store.CreateLink(r.Context(), security.Token(), input.DomainID, input.Slug, destination, actor)
+		l, err := s.store.CreateLinkRouting(r.Context(), security.Token(), input.DomainID, input.Slug, destination, input.Routing, actor)
 		if err != nil {
 			s.resourceFailure(w, err, "slug_conflict")
 			return
 		}
 		s.json(w, 201, l)
 	} else {
-		l, err := s.store.UpdateLink(r.Context(), id, input.DomainID, input.Slug, destination, *input.ExpectedRevision, actor)
+		l, err := s.store.UpdateLinkRouting(r.Context(), id, input.DomainID, input.Slug, destination, *input.ExpectedRevision, input.Routing, actor)
 		if err != nil {
 			s.resourceFailure(w, err, "slug_conflict")
 			return

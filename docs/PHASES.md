@@ -1,6 +1,6 @@
 # Fase dan batch implementasi
 
-Status: B01–B18 terimplementasi dan diuji lokal. B19 lokal selesai; VPS ARM bersih, HTTPS publik dan PHP aaPanel/cPanel lulus fungsi, Go publik 300 RPS/15 menit lulus. Gate kapasitas PHP/API nyata masih terbuka; B20 belum dimulai. Hasil terbaru: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md); baseline lokal: [CAPACITY_B19.md](CAPACITY_B19.md). Acuan desain: [PLAN.md](PLAN.md) dan [UI_UX.md](UI_UX.md).
+Status: B01–B18 terimplementasi dan diuji lokal. B19 lokal selesai; VPS ARM bersih, HTTPS publik dan PHP aaPanel/cPanel lulus fungsi, Go publik 300 RPS/15 menit lulus. Gate kapasitas PHP/API nyata masih terbuka; B20 kembali ke revisi dev lokal setelah review owner: fallback/audience per link dan pemisahan UI aturan. Deployment production belum dilakukan. Hasil terbaru: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md); baseline lokal: [CAPACITY_B19.md](CAPACITY_B19.md). Acuan desain: [PLAN.md](PLAN.md) dan [UI_UX.md](UI_UX.md).
 
 ## 1. Hasil review plan
 
@@ -114,7 +114,7 @@ Catat status, hasil verifikasi, file utama dan hambatan pada tabel tracking beri
 | B17 | Terimplementasi, diuji lokal | PHP v0.17.0-b17 signed/immutable, owner-only download ZIP/tutorial, bootstrap domain, diagnosis API/idle dan probe/retry; actual downloaded ZIP→wizard→Go/PostgreSQL redirect serta 24 dashboard browser tests lulus | Hosting/provider PHP nyata dan HTTPS publik tetap gate; runtime minimum PHP 8.2 belum diuji |
 | B18 | Terimplementasi, diuji lokal | TOTP/recovery, sesi MFA verified, reauth/CSRF, rotasi credential pending/ACK, proof identitas pusat, migrasi signed dan tool private config Go/PHP; 26 browser tests dan backend race lulus | Root signing tetap dipin; hosting manual perlu verifikasi runtime setelah upload; HTTPS publik/ARM tetap gate |
 | B19 | Terimplementasi, diuji lokal | Full API 50/300/600 durasi 30/15/5 menit, full Go lokal 300/600, batch ingest 300, accounting/drain, restore 90k events, SIGKILL/SQLITE_FULL/actual ENOSPC, GeoLite cleanup/retensi dan Docker build lulus; [hasil kapasitas](CAPACITY_B19.md) | Shared host/tmpfs/synthetic/loopback; VPS/SSD/HTTPS publik/ARM/hosting nyata tetap gate; wrapper error full300 tercatat |
-| B20 | Belum dimulai | Acceptance dan dependensi tersedia | Bergantung B19 dan gate produksi nyata |
+| B20 | Berjalan | Review rilis, keyboard/responsive dan runbook upgrade/rollback; lihat [RELEASE_B20.md](RELEASE_B20.md) | Kapasitas PHP/API B19 dan acceptance production masih terbuka |
 
 Batch implementasi berikutnya: **B20 — review E2E private release, accessibility/responsive, upgrade/rollback dan gate deployment**. Acceptance B10 pada VPS bersih/HTTPS publik tetap menjadi gate sebelum produksi. Prototipe B01 tidak dianggap sebagai aplikasi operasional.
 
@@ -293,3 +293,25 @@ Hasil final [CAPACITY_B19.md](CAPACITY_B19.md) menggantikan status progress sebe
 ## B19 — lingkungan publik mulai 11 Oktober 2026
 
 Deployment pusat native ARM/aaPanel dan HTTPS sudah berjalan, browser login desktop/mobile lulus. Pengujian VPS ARM bersih dan PHP aaPanel/cPanel sedang berjalan; hasil serta gate yang belum selesai mengikuti [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md). Ini melengkapi gate B19 nyata sebelum penutupan deployment/B20.
+
+## Revisi B20 setelah review owner
+
+Owner meminta kembali ke dev lokal: fallback per shortlink, tombol buka URL pendek, aturan global di halaman global dan aturan domain di detail domain. Form tambah/edit link menyimpan tujuan, fallback dan audience sebagai draft; bot serta pengunjung yang tidak cocok menuju fallback. Implementasi dan batas kompatibilitas: [LINK_ROUTING.md](LINK_ROUTING.md). Rilis/public acceptance B20 tetap berjalan; revisi ini belum dipasang ke VPS.
+
+Revisi dev ProxyCheck: private API key dikelola dari Sistem, disimpan terenkripsi di pusat dan dapat diganti/dihapus. Link dapat memilih fallback untuk anonymous/proxy serta hasil unknown. Cache, kuota, failure semantics dan gate akun nyata mengikuti [PROXYCHECK.md](PROXYCHECK.md). Go membutuhkan routingVersion 2 untuk fitur proxy; hasil kapasitas B19 belum dianggap acceptance provider aktif.
+
+Revisi lokal 12 Oktober 2026: root dan slug tidak ditemukan memakai URL pembuka domain (302); kosong menghasilkan 503. Detail domain menyediakan editor opening, daftar link domain dan key manage sekali pakai. Go/PHP manage scoped-domain memakai hash sesi di pusat, cookie aman, Origin/CSRF; [AGENT_MANAGE.md](AGENT_MANAGE.md). PHP kandidat v0.20.1-b20, Go dev routingVersion 3. Belum dipasang ke VPS/hosting publik.
+
+Revisi dev 13 Oktober 2026: provider IP dapat dipilih antara ProxyCheck dan BEON-IPQuality milik owner. URL HTTPS dan key client dapat diganti dari Sistem; key terenkripsi hanya di pusat. Flag proxy/VPN/Tor/botnet mengarahkan link yang mengaktifkan fitur ke fallback, crawler tetap memakai deteksi UA. Unknown mengikuti pilihan link. Konfigurasi dan smoke API nyata hanya dilakukan di dev lokal; gate kapasitas dan production tetap terbuka. [Detail integrasi BEON](IP_QUALITY.md).
+
+Koreksi owner: BEON-IPQuality tanpa kuota lookup harian. Field/batas harian hanya digunakan ProxyCheck; cache, singleflight dan pembatas request sesaat tetap berlaku untuk BEON.
+
+Revisi UX input API key: key tersimpan ditampilkan sebagai mask dalam input setelah simpan/reload. Klik input untuk mengganti langsung dan simpan; pesan berhasil jelas, draft key dipertahankan jika request gagal. Mask hanya penanda dan tidak dikirim sebagai credential.
+
+Revisi owner: fokus BEON-IPQuality saja, provider eksternal ProxyCheck dihapus. Delapan flag boolean dapat dipilih per shortlink; flag terpilih true menuju fallback. Datacenter yang tidak dipilih tidak menolak akses. Simulator dan runtime Go/API memakai pilihan yang sama; Go memerlukan routingVersion 4 untuk daftar eksplisit. Pemeriksaan koneksi publik ARM/PHP aaPanel/cPanel online/ready dan applied revision cocok pada 13 Oktober 2026; kode flag baru tetap hanya dev lokal. [Detail BEON](IP_QUALITY.md).
+
+Persiapan staging/production: prototype UI dipisahkan ke mode prototype/port 5174 dan build dist-prototype. Dashboard nyata lokal/staging/production mengabaikan demo=1; bundle real tidak membawa fixture atau link preview. Build staging dist-staging dan production dist terpisah, contoh environment database/path/hostname terpisah tersedia. Pusat aaPanel test saat ini dikelola systemd (binary Go + dashboard statis Nginx), bukan Node/Go Project panel. Cutover publik menunggu penetapan hostname dan penyelesaian gate rilis; [ENVIRONMENTS.md](ENVIRONMENTS.md).
+
+Staging publik stg-dashort.beon-api.site sudah terpasang terpisah pada aaPanel ARM: HTTPS, DB/role/seed/owner tersendiri, Go v0.20.2-staging dan PHP v0.20.1-b20. Health/login/logout/manifests lulus; BEON upstream masih unavailable. Pusat lama dashort tetap normal, cutover production menunggu keputusan mempertahankan data/agent atau memulai kosong; backup pre-production/off-host tersedia.
+
+Cutover 13 Oktober 2026 disetujui owner dengan mempertahankan data/agent: production dashort telah memakai build tanpa preview dan backend baru; staging terpisah tetap aktif. Restore/migrasi 28 tabel dan fingerprint identitas lulus. Go ARM v0.20.4 serta PHP aaPanel/cPanel v0.20.1-b20 terpasang tanpa mengganti credential; redirect/probe ketiganya lulus. Lookup BEON final known. Gate kapasitas/operasi tetap terbuka; [catatan cutover dan rollback](ENVIRONMENTS.md).

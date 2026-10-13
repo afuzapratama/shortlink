@@ -218,12 +218,24 @@ func (s *Server) makeDecision(w http.ResponseWriter, r *http.Request, a store.Ag
 	uaDone := store.Measure(ctx, "ua_parse")
 	visitor := policy.Detect(*input.Signals.UserAgent)
 	uaDone()
+	// Provider network calls stay outside PostgreSQL decision locks.
+	if s.proxy.Enabled(ctx) {
+		if use, err := s.store.LinkUsesProxy(ctx, a.DomainID, input.Slug); err != nil {
+			s.unavailable(w)
+			return
+		} else if use {
+			proxyResult := s.proxy.Lookup(ctx, ip.Unmap())
+			visitor.ProxyDetected = proxyResult.Detected
+			visitor.ProxyStatus = proxyResult.Status
+			visitor.IPQuality = proxyResult.Flags
+		}
+	}
 	decision, replayed, err := s.store.MakeDecision(ctx, a, input.EventID, hash, input.Slug, input.OccurredAt, func(routing *store.Routing, link store.Link) (policy.TrafficEvent, error) {
 		signals, geo, feed, e := s.classify(ctx, a.DomainID, visitor, ip.Unmap(), routing.Protection, true)
 		if e != nil {
 			return policy.TrafficEvent{}, e
 		}
-		d := routing.Engine.EvaluateProtection(link.ID, link.Destination, signals, routing.Protection)
+		d := routing.Engine.EvaluateRouting(link.ID, link.Destination, link.Routing, signals, routing.Protection)
 		d.GeoRelease = geo
 		d.FeedVersion = feed
 		return policy.TrafficEvent{Decision: d, Country: signals.Country, Device: signals.Device, OS: signals.OS, Browser: signals.Browser, OSVersion: signals.OSVersion, BrowserVersion: signals.BrowserVersion, DeviceBrand: signals.DeviceBrand, DeviceModel: signals.DeviceModel}, nil

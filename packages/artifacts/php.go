@@ -96,7 +96,7 @@ func InspectPHPZIP(path, version string) ([]byte, error) {
 		return nil, err
 	}
 	defer z.Close()
-	allowed := map[string]bool{"public/": true, "private/": true, "private/src/": true, "public/index.php": true, "public/setup.css": true, "public/.htaccess": true, "private/src/Adapter.php": true, "private/src/Setup.php": true, "private/bootstrap.example.json": true, "INSTALL.md": true}
+	allowed := map[string]bool{"public/": true, "private/": true, "private/src/": true, "public/index.php": true, "public/setup.css": true, "public/.htaccess": true, "private/src/Adapter.php": true, "private/src/Setup.php": true, "private/src/Manage.php": true, "private/bootstrap.example.json": true, "INSTALL.md": true}
 	seen := map[string]bool{}
 	var tutorial []byte
 	var total uint64

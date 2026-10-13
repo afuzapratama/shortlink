@@ -18,12 +18,18 @@ import (
 )
 
 type testCenter struct {
-	mu        sync.Mutex
-	raw       []byte
-	status    int
-	heartbeat int64
-	etag      string
-	private   ed25519.PrivateKey
+	manageKey     string
+	manageSession string
+	manageCSRF    string
+	manageURL     string
+	proxyCalls    int
+	proxyDetected bool
+	mu            sync.Mutex
+	raw           []byte
+	status        int
+	heartbeat     int64
+	etag          string
+	private       ed25519.PrivateKey
 }
 
 func (c *testCenter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +41,46 @@ func (c *testCenter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if c.status != 0 {
 		w.WriteHeader(c.status)
+		return
+	}
+	if r.URL.Path == "/v1/agents/manage/exchange" {
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["key"] != c.manageKey || c.manageKey == "" {
+			w.WriteHeader(401)
+			return
+		}
+		c.manageKey = ""
+		json.NewEncoder(w).Encode(map[string]any{"session": c.manageSession, "expiresAt": time.Now().Add(15 * time.Minute)})
+		return
+	}
+	if r.URL.Path == "/v1/agents/manage/session" {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["session"] != c.manageSession || c.manageSession == "" {
+			w.WriteHeader(401)
+			return
+		}
+		if body["action"] == "update" || body["action"] == "logout" {
+			if body["csrf"] != c.manageCSRF {
+				w.WriteHeader(403)
+				return
+			}
+		}
+		if body["action"] == "logout" {
+			c.manageSession = ""
+			json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+			return
+		}
+		if body["action"] == "update" {
+			c.manageURL = body["openingUrl"].(string)
+		}
+		json.NewEncoder(w).Encode(map[string]any{"domain": map[string]any{"hostname": "go.example.test", "openingUrl": c.manageURL, "desiredRevision": 1}, "links": []map[string]any{{"id": "l", "slug": "hello", "destination": "https://example.org/main", "state": "published"}}, "csrf": c.manageCSRF, "nextCursor": ""})
+		return
+	}
+	if r.URL.Path == "/v1/agents/proxycheck" {
+		c.proxyCalls++
+		json.NewEncoder(w).Encode(map[string]any{"status": "known", "detected": c.proxyDetected, "flags": policy.IPQualityFlags{Proxy: c.proxyDetected, Datacenter: true}, "expiresAt": time.Now().Add(time.Minute)})
 		return
 	}
 	if r.URL.Path == "/v1/agents/heartbeat" {
@@ -96,6 +142,176 @@ func redirect(t *testing.T, a *Agent, host, path string, code int) *httptest.Res
 	}
 	return w
 }
+func TestSignedLinkFallbackRoutesBotsAndAudienceLocally(t *testing.T) {
+	a, c, closeServer := testAgent(t)
+	defer closeServer()
+	snapshot := fixture(2)
+	snapshot.Links[0].Routing = &policy.LinkRouting{Fallback: "https://example.org/alternate", Country: "*", Device: "mobile", OS: "ios", Browser: "safari"}
+	c.mu.Lock()
+	c.raw = c.sign(snapshot)
+	c.mu.Unlock()
+	if err := a.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ ua, target string }{
+		{"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", snapshot.Links[0].Destination},
+		{"Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36", snapshot.Links[0].Routing.Fallback},
+		{"Googlebot/2.1 (+http://www.google.com/bot.html)", snapshot.Links[0].Routing.Fallback},
+	} {
+		req := httptest.NewRequest("GET", "/hello", nil)
+		req.Host = a.cfg.Hostname
+		req.Header.Set("User-Agent", tc.ua)
+		response := httptest.NewRecorder()
+		a.ServeHTTP(response, req)
+		if response.Code != 302 || response.Header().Get("Location") != tc.target {
+			t.Fatalf("%s: %d %s", tc.ua, response.Code, response.Header().Get("Location"))
+		}
+	}
+	snapshot.Revision = 3
+	snapshot.Links[0].Routing.Fallback = "https://" + a.cfg.Hostname + "/hello"
+	if _, err := a.verify(c.sign(snapshot), time.Now(), true); err == nil {
+		t.Fatal("looping fallback activated")
+	}
+}
+
+func TestLocalProxyLookupCacheAndOfflineUnknownFallback(t *testing.T) {
+	a, c, closeServer := testAgent(t)
+	snapshot := fixture(2)
+	snapshot.Links[0].Routing = &policy.LinkRouting{Fallback: "https://example.org/proxy-fallback", Country: "*", Device: "*", OS: "*", Browser: "*", ProxyCheck: true, ProxyUnknownFallback: true}
+	c.mu.Lock()
+	c.raw = c.sign(snapshot)
+	c.proxyDetected = true
+	c.mu.Unlock()
+	if err := a.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	visit := func(want string) {
+		t.Helper()
+		r := httptest.NewRequest("GET", "/hello", nil)
+		r.Host = a.cfg.Hostname
+		r.RemoteAddr = "1.1.1.1:1234"
+		r.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36")
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		if w.Code != 302 || w.Header().Get("Location") != want {
+			t.Fatalf("%d %s", w.Code, w.Header().Get("Location"))
+		}
+	}
+	for i := 0; i < 3; i++ {
+		visit(snapshot.Links[0].Routing.Fallback)
+	}
+	c.mu.Lock()
+	calls := c.proxyCalls
+	c.mu.Unlock()
+	if calls != 1 {
+		t.Fatal("agent did not cache", calls)
+	}
+	closeServer()
+	a.proxy.mu.Lock()
+	a.proxy.entries = map[string]proxyResult{}
+	a.proxy.mu.Unlock()
+	visit(snapshot.Links[0].Routing.Fallback)
+}
+
+func TestOpeningRootAndUnknownRedirectWithoutEvents(t *testing.T) {
+	a, c, closeServer := testAgent(t)
+	defer closeServer()
+	snapshot := fixture(2)
+	snapshot.Domain.OpeningURL = "https://example.org/opening"
+	c.mu.Lock()
+	c.raw = c.sign(snapshot)
+	c.mu.Unlock()
+	if err := a.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/", "/missing", "/unknown/extra"} {
+		w := redirect(t, a, a.cfg.Hostname, path, 302)
+		if w.Header().Get("Location") != snapshot.Domain.OpeningURL {
+			t.Fatal(w.Header())
+		}
+	}
+	redirect(t, a, a.cfg.Hostname, "/health/unknown", 404)
+	redirect(t, a, a.cfg.Hostname, "/.well-known/unknown", 404)
+	redirect(t, a, a.cfg.Hostname, "/__agent/setup", 404)
+	snapshot.Revision = 3
+	snapshot.Domain.OpeningURL = ""
+	c.mu.Lock()
+	c.raw = c.sign(snapshot)
+	c.mu.Unlock()
+	if err := a.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	redirect(t, a, a.cfg.Hostname, "/", 503)
+	redirect(t, a, a.cfg.Hostname, "/missing", 503)
+	snapshot.Revision = 4
+	snapshot.Domain.OpeningURL = "https://" + a.cfg.Hostname + "/loop"
+	if _, err := a.verify(c.sign(snapshot), time.Now(), true); err == nil {
+		t.Fatal("root loop accepted")
+	}
+}
+
+func TestManageHTTPKeyCookieOriginAndLogout(t *testing.T) {
+	a, c, closeServer := testAgent(t)
+	defer closeServer()
+	raw := make([]byte, 32)
+	raw[0] = 1
+	key := base64.RawURLEncoding.EncodeToString(raw)
+	raw[0] = 2
+	session := base64.RawURLEncoding.EncodeToString(raw)
+	raw[0] = 3
+	csrf := base64.RawURLEncoding.EncodeToString(raw)
+	c.mu.Lock()
+	c.manageKey = key
+	c.manageSession = session
+	c.manageCSRF = csrf
+	c.mu.Unlock()
+	call := func(method, body, origin string, cookie *http.Cookie) *httptest.ResponseRecorder {
+		t.Helper()
+		r := httptest.NewRequest(method, "/__agent/manage", strings.NewReader(body))
+		r.Host = a.cfg.Hostname + ":8091"
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if origin != "" {
+			r.Header.Set("Origin", origin)
+		}
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		return w
+	}
+	origin := "http://" + a.cfg.Hostname + ":8091"
+	if w := call("GET", "", "", nil); w.Code != 200 || !strings.Contains(w.Body.String(), "Key akses manage") {
+		t.Fatal(w.Code)
+	}
+	if w := call("POST", "action=login&key="+key, "https://other.example", nil); w.Code != 403 {
+		t.Fatal("foreign origin accepted")
+	}
+	w := call("POST", "action=login&key="+key, origin, nil)
+	if w.Code != 303 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) != 1 || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatal("unsafe cookie")
+	}
+	cookie := cookies[0]
+	w = call("GET", "", "", cookie)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "Shortlink domain ini") || strings.Contains(w.Body.String(), key) {
+		t.Fatal(w.Code)
+	}
+	if w = call("POST", "action=update&expectedRevision=1&openingUrl=https%3A%2F%2Fexample.org%2Fopening&csrf=wrong", origin, cookie); w.Code != 403 {
+		t.Fatal("CSRF accepted")
+	}
+	w = call("POST", "action=update&expectedRevision=1&openingUrl=https%3A%2F%2Fexample.org%2Fopening&csrf="+csrf, origin, cookie)
+	if w.Code != 303 {
+		t.Fatal(w.Code)
+	}
+	w = call("POST", "action=logout&csrf="+csrf, origin, cookie)
+	if w.Code != 303 || w.Result().Cookies()[0].MaxAge != -1 {
+		t.Fatal("logout failed")
+	}
+}
 func TestSyncRoutingPersistenceAndOutage(t *testing.T) {
 	a, c, closeServer := testAgent(t)
 	defer closeServer()
@@ -112,7 +328,7 @@ func TestSyncRoutingPersistenceAndOutage(t *testing.T) {
 	}
 	redirect(t, a, "foreign.example.test", "/hello", 421)
 	for _, path := range []string{"/missing", "/hello/extra", "/%68ello", "/../hello"} {
-		redirect(t, a, a.cfg.Hostname, path, 404)
+		redirect(t, a, a.cfg.Hostname, path, 503)
 	}
 	r := httptest.NewRequest("HEAD", "/hello", nil)
 	r.Host = a.cfg.Hostname
@@ -404,4 +620,46 @@ func TestGeoRequiredAndAssetRevocation(t *testing.T) {
 		t.Fatal("asset revocation ignored")
 	}
 	redirect(t, a, a.cfg.Hostname, "/hello", 503)
+}
+
+func TestLocalBEONDatacenterSelectionUsesRawCachedFlags(t *testing.T) {
+	a, c, closeServer := testAgent(t)
+	defer closeServer()
+	snapshot := fixture(2)
+	selected := []string{"datacenter"}
+	snapshot.Links[0].Routing = &policy.LinkRouting{ProxyCheck: true, ProxyUnknownFallback: true, IPQualityBlock: &selected, Fallback: "https://example.org/ip-fallback", Country: "*", Device: "*", OS: "*", Browser: "*"}
+	c.mu.Lock()
+	c.raw = c.sign(snapshot)
+	c.mu.Unlock()
+	if err := a.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	visit := func(want string) {
+		t.Helper()
+		r := httptest.NewRequest("GET", "/hello", nil)
+		r.Host = a.cfg.Hostname
+		r.RemoteAddr = "1.1.1.1:1234"
+		r.Header.Set("User-Agent", "Mozilla/5.0 Chrome/120.0")
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		if w.Code != 302 || w.Header().Get("Location") != want {
+			t.Fatalf("%d %s", w.Code, w.Header().Get("Location"))
+		}
+	}
+	visit(snapshot.Links[0].Routing.Fallback)
+	selected = []string{"proxy"}
+	snapshot.Revision++
+	c.mu.Lock()
+	c.raw = c.sign(snapshot)
+	c.mu.Unlock()
+	if err := a.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	visit(snapshot.Links[0].Destination)
+	c.mu.Lock()
+	calls := c.proxyCalls
+	c.mu.Unlock()
+	if calls != 1 {
+		t.Fatal("raw IP cache was not shared", calls)
+	}
 }

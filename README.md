@@ -21,7 +21,7 @@ Dashboard menampilkan loading, empty state, error/retry dan sesi kedaluwarsa. Si
 
 ## Preview fitur lanjutan
 
-Prototipe B01 tersedia secara eksplisit di `http://127.0.0.1:5173/?demo=1`. Wizard browser: `http://127.0.0.1:5173/?demo=1#/agent/setup`, token contoh `DEMO-INSTALL`. Preview tidak memakai API/database, login hanya visual, dan refresh mengembalikan fixture. Jangan masukkan credential produksi ke preview.
+Prototipe B01 dipisahkan: jalankan `npm run dev:prototype`, lalu buka `http://127.0.0.1:5174/?demo=1`. Dashboard lokal biasa, staging, dan production mengabaikan `?demo=1` dan selalu memakai API nyata. Wizard browser: `http://127.0.0.1:5174/?demo=1#/agent/setup`, token contoh `DEMO-INSTALL`. Preview tidak memakai API/database, login hanya visual, dan refresh mengembalikan fixture. Jangan masukkan credential produksi ke preview.
 
 Preview memperlihatkan aturan global/domain/shortlink, edit tujuan published melalui draft/publish, OS terpisah dari mobile/tablet/desktop, browser opsional, serta log merek/model atau Unknown. Parser uap-go nyata tersedia pada aplikasi utama; preview tetap fixture. [Screenshot aturan](docs/artifacts/rules-desktop.png), [edit tujuan](docs/artifacts/edit-link-desktop.png), [traffic OS](docs/artifacts/traffic-os-desktop.png), [dashboard desktop](docs/artifacts/dashboard-desktop.png), [mobile](docs/artifacts/dashboard-mobile.png), [setup desktop](docs/artifacts/setup-desktop.png), [setup mobile](docs/artifacts/setup-mobile.png) berasal dari preview.
 
@@ -94,3 +94,5 @@ B19 sedang dikerjakan: [operasi/backup dan diagnostic kapasitas](docs/OPERATIONS
 B19 selesai untuk implementasi/uji lokal: [hasil kapasitas](docs/CAPACITY_B19.md), [runbook operasi](docs/OPERATIONS.md), backup/restore 90k events, SIGKILL/SQLITE_FULL/ENOSPC, outage singkat dan retensi. API full 300 RPS/15 menit: 270k tanpa error, p95 8,98 ms. Hasil tmpfs/loopback/shared host bukan jaminan VPS atau hosting. Berikutnya B20; VPS/HTTPS publik/ARM/hosting nyata tetap gate release. Image pusat lokal terbaru: `shortlink-control:b19-local`.
 
 Pengujian publik B19 (11 Oktober 2026): pusat/agent native ARM, VPS Ubuntu 26.04 bersih, HTTPS dan PHP aaPanel/cPanel 8.2+ lulus fungsi. Go 300 RPS/15 menit tanpa error, backup/restore 388.790 events lulus. Kapasitas PHP/API nyata masih terbuka; lihat [hasil publik](docs/PUBLIC_TESTS_B19.md).
+
+B20 dimulai untuk review private release: [alur review owner, upgrade/rollback dan gate production](docs/RELEASE_B20.md). Kapasitas PHP/API B19 tetap terbuka; deployment production belum dilakukan.

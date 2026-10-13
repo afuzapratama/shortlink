@@ -1,5 +1,7 @@
 # B13 — observasi bot/crawler, Tor, reputasi dan rate limit
 
+Revisi dev 11 Oktober 2026 menambah integrasi [ProxyCheck](PROXYCHECK.md), key terenkripsi yang dikelola owner dari dashboard dan pilihan proxy/unknown fallback per shortlink. Bagian B13 di bawah merupakan baseline sebelumnya; provider ini memakai lookup pusat + cache, bukan daftar feed Tor/reputasi. Dukungan provider tidak berarti kuota, akurasi dan kapasitas publik sudah lulus.
+
 Default domain **observe**. Agent mengenali sinyal lokal dan mencatat kandidat keputusan aturan risiko, tetapi routing nyata tetap menjalankan aturan biasa dan tujuan published shortlink. Enforce hanya menerapkan aturan risiko yang sudah dipublish; mengubah mode tanpa membuat aturan bukan blokir otomatis. Off mengabaikan aturan risiko dan tidak mencatat risk observation. Aturan geo/device/OS/browser/ASN tetap berlaku pada ketiga mode.
 
 ## Sumber dan batas deteksi

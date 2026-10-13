@@ -11,6 +11,8 @@ import (
 
 func (s *Server) policyFailure(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, store.ErrRoutingCapability):
+		s.fail(w, 422, "capability_missing", "Update the Go agent to support this configuration. Selected BEON-IPQuality flags require routingVersion=4.")
 	case errors.Is(err, store.ErrPolicy), errors.Is(err, store.ErrBinding):
 		s.fail(w, 422, "validation_failed", err.Error())
 	case errors.Is(err, store.ErrCapability):
@@ -59,20 +61,23 @@ func (s *Server) policyAdmin(w http.ResponseWriter, r *http.Request, actor strin
 			return true
 		}
 		var input struct {
-			ASN                 *uint32 `json:"asn"`
-			LinkID              string  `json:"linkId"`
-			Country             string  `json:"country"`
-			Device              string  `json:"device"`
-			OS                  string  `json:"os"`
-			Browser             string  `json:"browser"`
-			KnownBot            bool    `json:"knownBot"`
-			SuspectedAutomation bool    `json:"suspectedAutomation"`
-			TorExit             bool    `json:"torExit"`
-			ReputationFlag      bool    `json:"reputationFlag"`
-			RateLimited         bool    `json:"rateLimited"`
-			BotCategory         string  `json:"botCategory"`
-			RuleSetID           string  `json:"ruleSetId"`
-			ExpectedRevision    *int64  `json:"expectedRevision"`
+			IPQuality           *policy.IPQualityFlags `json:"ipQuality"`
+			ProxyDetected       bool                   `json:"proxyDetected"`
+			ProxyStatus         string                 `json:"proxyStatus"`
+			ASN                 *uint32                `json:"asn"`
+			LinkID              string                 `json:"linkId"`
+			Country             string                 `json:"country"`
+			Device              string                 `json:"device"`
+			OS                  string                 `json:"os"`
+			Browser             string                 `json:"browser"`
+			KnownBot            bool                   `json:"knownBot"`
+			SuspectedAutomation bool                   `json:"suspectedAutomation"`
+			TorExit             bool                   `json:"torExit"`
+			ReputationFlag      bool                   `json:"reputationFlag"`
+			RateLimited         bool                   `json:"rateLimited"`
+			BotCategory         string                 `json:"botCategory"`
+			RuleSetID           string                 `json:"ruleSetId"`
+			ExpectedRevision    *int64                 `json:"expectedRevision"`
 		}
 		if !s.decode(w, r, &input) {
 			return true
@@ -84,8 +89,8 @@ func (s *Server) policyAdmin(w http.ResponseWriter, r *http.Request, actor strin
 			s.fail(w, 400, "validation_failed", "Invalid bot category.")
 			return true
 		}
-		signals := policy.Signals{ASN: input.ASN, Country: input.Country, Device: input.Device, OS: input.OS, Browser: input.Browser, KnownBot: input.KnownBot, SuspectedAutomation: input.SuspectedAutomation, TorExit: input.TorExit, ReputationFlag: input.ReputationFlag, RateLimited: input.RateLimited, BotCategory: input.BotCategory, FeedStatus: "synthetic", TorStatus: "synthetic", ReputationStatus: "synthetic"}
-		if !policy.ValidSignals(signals) || (input.RuleSetID == "") != (input.ExpectedRevision == nil) {
+		signals := policy.Signals{IPQuality: input.IPQuality, ProxyDetected: input.ProxyDetected, ProxyStatus: input.ProxyStatus, ASN: input.ASN, Country: input.Country, Device: input.Device, OS: input.OS, Browser: input.Browser, KnownBot: input.KnownBot, SuspectedAutomation: input.SuspectedAutomation, TorExit: input.TorExit, ReputationFlag: input.ReputationFlag, RateLimited: input.RateLimited, BotCategory: input.BotCategory, FeedStatus: "synthetic", TorStatus: "synthetic", ReputationStatus: "synthetic"}
+		if (input.ProxyStatus != "" && input.ProxyStatus != "known" && input.ProxyStatus != "unavailable") || (input.ProxyDetected && input.ProxyStatus != "known") || !policy.ValidSignals(signals) || (input.RuleSetID == "") != (input.ExpectedRevision == nil) {
 			s.fail(w, 400, "validation_failed", "Invalid visitor signals or draft revision.")
 			return true
 		}

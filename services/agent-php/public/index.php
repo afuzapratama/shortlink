@@ -28,7 +28,9 @@ try {
     if(!is_file($private.'/config.json')) { http_response_code(503); exit('Agent belum diaktifkan.'); }
     $config=\Shortlink\readJson($private.'/config.json');
     if(($config['hostname'] ?? '')!==$bootstrap['hostname'] || ($config['controlPlaneUrl'] ?? '')!==$bootstrap['controlPlaneUrl'] || !\Shortlink\validToken($config['credential'] ?? null)) throw new \Shortlink\Failure('Konfigurasi aktif tidak cocok.');
+    $host=parse_url('http://'.($_SERVER['HTTP_HOST'] ?? ''),PHP_URL_HOST);if(!is_string($host)||strtolower(rtrim($host,'.'))!==$config['hostname']){http_response_code(421);exit;}
     $client=new \Shortlink\Client($config['controlPlaneUrl'],$dev);
+    if($path==='/__agent/manage'){require $private.'/src/Manage.php';\Shortlink\manage($client,$config,$dev,$_SERVER);exit;}
     if($path==='/.well-known/shortlink-ready') {
         $nonce=$_SERVER['HTTP_X_SHORTLINK_NONCE'] ?? ''; $proof=$_SERVER['HTTP_X_SHORTLINK_PROOF'] ?? '';
         if($_SERVER['REQUEST_METHOD']!=='GET' || !\Shortlink\validToken($nonce) || !hash_equals(\Shortlink\mac($config['credential'],'request',$nonce),$proof)) { http_response_code(404); exit; }
@@ -36,10 +38,11 @@ try {
         header('Content-Type: application/json'); header('X-Shortlink-Proof: '.$r['headers']['x-shortlink-proof']); echo $r['raw']; exit;
     }
     if(!in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true)) { header('Allow: GET, HEAD'); http_response_code(405); exit; }
-    if(!preg_match('#^/([A-Za-z0-9][A-Za-z0-9_-]{0,79})$#D',$path,$m)) { http_response_code(404); exit('Link tidak ditemukan.'); }
-    // HEAD has no click side effect. A decision is made only for GET.
-    if($_SERVER['REQUEST_METHOD']==='HEAD') { http_response_code(204); exit; }
-    $result=\Shortlink\decision($client,$config,$m[1],$_SERVER);
+    if($path==='/__agent'||str_starts_with($path,'/__agent/')||str_starts_with($path,'/.well-known/')||str_starts_with($path,'/health/')){http_response_code(404);exit;}
+    $valid=preg_match('#^/([A-Za-z0-9_-]{1,80})$#D',$path,$m)===1;
+    if(!$valid){$result=\Shortlink\opening($client,$config);}
+    elseif($_SERVER['REQUEST_METHOD']==='HEAD'){$result=\Shortlink\opening($client,$config,$m[1]);}
+    else{$result=\Shortlink\decision($client,$config,$m[1],$_SERVER);if($result['status']===404)$result=\Shortlink\opening($client,$config);}
     http_response_code($result['status']);
     if(isset($result['location'])) header('Location: '.$result['location']);
     else echo match($result['status']) {403=>'Akses ditolak.',404=>'Link tidak ditemukan.',default=>'Layanan sementara tidak tersedia.'};

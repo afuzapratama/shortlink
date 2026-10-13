@@ -1,6 +1,6 @@
 # B19 — hasil pengujian publik
 
-Pengujian 11 Oktober 2026 melengkapi [hasil lokal](CAPACITY_B19.md). **Instalasi/fungsi VPS ARM, HTTPS publik, PHP aaPanel dan cPanel lulus. Go 300 RPS/15 menit lulus. Gate kapasitas PHP/API belum lulus; B19 nyata belum ditutup dan B20 belum dimulai.** Angka latency publik mencakup jaringan workstation, bukan waktu pemrosesan server. Domain pada laporan Git memakai contoh peran; alamat dan akses aktual tetap pada catatan operator privat.
+Pengujian 11 Oktober 2026 melengkapi [hasil lokal](CAPACITY_B19.md). **Instalasi/fungsi VPS ARM, HTTPS publik, PHP aaPanel dan cPanel lulus. Go 300 RPS/15 menit lulus. Gate kapasitas PHP/API belum lulus; B19 nyata belum ditutup. B20 dimulai untuk review rilis atas arahan owner; gate ini tetap terbuka.** Angka latency publik mencakup jaringan workstation, bukan waktu pemrosesan server. Domain pada laporan Git memakai contoh peran; alamat dan akses aktual tetap pada catatan operator privat.
 
 ## Lingkungan dan deployment
 
@@ -78,6 +78,6 @@ Backup remote `/var/backups/shortlink-test/b19-after-public-tests`, directory 07
 
 ## Gate berikutnya
 
-Tetap di B19 untuk kapasitas PHP/API: generator/latency, CPU/DB/lock, dan workload campuran sesuai target total 100–300 RPS. Jangan memindahkan hasil tmpfs developer sebagai kapasitas VPS. Full baseline publik 50 RPS/30 menit dan stress 600 RPS/5 menit belum diulang; hasil full lokal tetap terpisah.
+Pekerjaan kapasitas PHP/API B19 tetap terbuka saat review B20: generator/latency, CPU/DB/lock, dan workload campuran sesuai target total 100–300 RPS. Jangan memindahkan hasil tmpfs developer sebagai kapasitas VPS. Full baseline publik 50 RPS/30 menit dan stress 600 RPS/5 menit belum diulang; hasil full lokal tetap terpisah.
 
 Ubuntu 22.04/24.04/Debian dan VPS amd64 bersih belum diuji native. Konflik port/gagal download live, full VPS rebuild/cold restart, maintenance rotation/migration live, production MFA/setup/updater/scheduled backup dan konfigurasi aaPanel produksi tetap tahap berikutnya. Tidak menutup gate yang tidak dijalankan hanya karena instalasi berhasil.

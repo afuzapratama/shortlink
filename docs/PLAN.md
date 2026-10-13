@@ -436,3 +436,19 @@ Penutupan B19 lokal: [CAPACITY_B19.md](CAPACITY_B19.md) dan [OPERATIONS.md](OPER
 ## B19 — pengujian publik 11 Oktober 2026
 
 Ubuntu 26.04 ARM bersih didukung melalui rilis immutable v0.19.1-b19; v0.19.2-b19 dipakai menguji update/rollback. Pusat native ARM/HTTPS, Go agent dan kedua PHP aaPanel/cPanel lulus fungsi/readiness. Go 300 RPS/15 menit tanpa error; backup/restore dataset 388.790 event cocok pada seluruh 27 tabel. Kapasitas PHP/API VPS masih belum lulus; geoipupdate/jadwal production ditunda sesuai arahan. Hasil lengkap dan gate tersisa: [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).
+
+## Revisi routing dan UI dari review owner — 11 Oktober 2026
+
+Form tambah/edit shortlink memuat tujuan utama, fallback dan pilihan audience negara/device/OS/browser. Kondisi AND; bot/crawler dan pengunjung di luar audience diarahkan ke fallback link. Tombol Buka membuka URL pendek published. Aturan global tetap di halaman global; aturan domain dikelola di detail domain. Dalam satu cakupan, beberapa aturan izin memakai OR; antara global, domain dan shortlink memakai AND, pengecualian menang. Tujuan/fallback/audience dipublish dan dirollback sebagai satu konfigurasi. Link lama tanpa routing eksplisit tetap kompatibel hingga diedit. [Spesifikasi revisi](LINK_ROUTING.md).
+
+Revisi dev ProxyCheck: private API key dikelola dari Sistem, disimpan terenkripsi di pusat dan dapat diganti/dihapus. Link dapat memilih fallback untuk anonymous/proxy serta hasil unknown. Cache, kuota, failure semantics dan gate akun nyata mengikuti [PROXYCHECK.md](PROXYCHECK.md). Go membutuhkan routingVersion 2 untuk fitur proxy; hasil kapasitas B19 belum dianggap acceptance provider aktif.
+
+Revisi lokal 12 Oktober 2026: root dan slug tidak ditemukan memakai URL pembuka domain (302); kosong menghasilkan 503. Detail domain menyediakan editor opening, daftar link domain dan key manage sekali pakai. Go/PHP manage scoped-domain memakai hash sesi di pusat, cookie aman, Origin/CSRF; [AGENT_MANAGE.md](AGENT_MANAGE.md). PHP kandidat v0.20.1-b20, Go dev routingVersion 3. Belum dipasang ke VPS/hosting publik.
+
+Revisi dev 13 Oktober 2026: provider IP dapat dipilih antara ProxyCheck dan BEON-IPQuality milik owner. URL HTTPS dan key client dapat diganti dari Sistem; key terenkripsi hanya di pusat. Flag proxy/VPN/Tor/botnet mengarahkan link yang mengaktifkan fitur ke fallback, crawler tetap memakai deteksi UA. Unknown mengikuti pilihan link. Konfigurasi dan smoke API nyata hanya dilakukan di dev lokal; gate kapasitas dan production tetap terbuka. [Detail integrasi BEON](IP_QUALITY.md).
+
+Koreksi owner: BEON-IPQuality tanpa kuota lookup harian. Field/batas harian hanya digunakan ProxyCheck; cache, singleflight dan pembatas request sesaat tetap berlaku untuk BEON.
+
+Revisi owner: fokus BEON-IPQuality saja, provider eksternal ProxyCheck dihapus. Delapan flag boolean dapat dipilih per shortlink; flag terpilih true menuju fallback. Datacenter yang tidak dipilih tidak menolak akses. Simulator dan runtime Go/API memakai pilihan yang sama; Go memerlukan routingVersion 4 untuk daftar eksplisit. Pemeriksaan koneksi publik ARM/PHP aaPanel/cPanel online/ready dan applied revision cocok pada 13 Oktober 2026; kode flag baru tetap hanya dev lokal. [Detail BEON](IP_QUALITY.md).
+
+Persiapan staging/production: prototype UI dipisahkan ke mode prototype/port 5174 dan build dist-prototype. Dashboard nyata lokal/staging/production mengabaikan demo=1; bundle real tidak membawa fixture atau link preview. Build staging dist-staging dan production dist terpisah, contoh environment database/path/hostname terpisah tersedia. Pusat aaPanel test saat ini dikelola systemd (binary Go + dashboard statis Nginx), bukan Node/Go Project panel. Cutover publik menunggu penetapan hostname dan penyelesaian gate rilis; [ENVIRONMENTS.md](ENVIRONMENTS.md).

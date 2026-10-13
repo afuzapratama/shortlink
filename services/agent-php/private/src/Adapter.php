@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace Shortlink;
 
-const VERSION = 'v0.17.0-b17';
+const VERSION = 'v0.20.1-b20';
 final class Failure extends \RuntimeException {}
 function token(): string { return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '='); }
 function validToken(mixed $value): bool {
@@ -63,13 +63,13 @@ function bootstrap(string $private): array {
 }
 final class Client {
     public function __construct(private string $origin, private bool $development = false) { $this->origin = url($origin, $development); }
-    public function call(string $path, ?array $body = null, ?string $credential = null, int $timeout = 3000, array $extraHeaders = []): array {
+    public function call(string $path, ?array $body = null, ?string $credential = null, int $timeout = 3000, array $extraHeaders = [], int $maxBytes = 32768): array {
         if (!str_starts_with($path,'/') || str_starts_with($path,'//') || preg_match('/[\r\n]/',$path)) throw new Failure('Endpoint tidak valid.');
         $raw = ''; $headers = []; $overflow = false;
         $c = curl_init($this->origin.$path);
         $requestHeaders = ['Accept: application/json', 'Content-Type: application/json', ...$extraHeaders];
         if ($credential !== null) $requestHeaders[] = 'Authorization: Bearer '.$credential;
-        curl_setopt_array($c, [CURLOPT_FOLLOWLOCATION=>false, CURLOPT_MAXREDIRS=>0, CURLOPT_CONNECTTIMEOUT_MS=>min(1000,$timeout), CURLOPT_TIMEOUT_MS=>$timeout, CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2, CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS | ($this->development ? CURLPROTO_HTTP : 0), CURLOPT_PROXY=>'', CURLOPT_HTTPHEADER=>$requestHeaders, CURLOPT_WRITEFUNCTION=>static function($c,$chunk) use (&$raw,&$overflow) { if (strlen($raw)+strlen($chunk)>32768) { $overflow=true; return 0; } $raw.=$chunk; return strlen($chunk); }, CURLOPT_HEADERFUNCTION=>static function($c,$line) use (&$headers) { $pair=explode(':',$line,2); if(count($pair)===2) $headers[strtolower(trim($pair[0]))]=trim($pair[1]); return strlen($line); }]);
+        curl_setopt_array($c, [CURLOPT_FOLLOWLOCATION=>false, CURLOPT_MAXREDIRS=>0, CURLOPT_CONNECTTIMEOUT_MS=>min(1000,$timeout), CURLOPT_TIMEOUT_MS=>$timeout, CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2, CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS | ($this->development ? CURLPROTO_HTTP : 0), CURLOPT_PROXY=>'', CURLOPT_HTTPHEADER=>$requestHeaders, CURLOPT_WRITEFUNCTION=>static function($c,$chunk) use (&$raw,&$overflow,$maxBytes) { if (strlen($raw)+strlen($chunk)>$maxBytes) { $overflow=true; return 0; } $raw.=$chunk; return strlen($chunk); }, CURLOPT_HEADERFUNCTION=>static function($c,$line) use (&$headers) { $pair=explode(':',$line,2); if(count($pair)===2) $headers[strtolower(trim($pair[0]))]=trim($pair[1]); return strlen($line); }]);
         if ($body !== null) { curl_setopt($c,CURLOPT_POST,true); curl_setopt($c,CURLOPT_POSTFIELDS,json_encode($body,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES)); }
         $ok=curl_exec($c); $status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);
         if ($ok === false || $overflow) return ['status'=>0,'body'=>null,'raw'=>'','headers'=>[]];
@@ -148,4 +148,13 @@ function activate(string $private, array $b, string $installToken): array {
     atomicJson($private.'/config.json',$config);
     @unlink($pendingFile);
     return $config;
+}
+
+function opening(Client $client,array $config,string $slug=''): array {
+ $r=$client->call('/v1/agents/opening',['slug'=>$slug],$config['credential'],1500);$b=$r['body'];
+ if($r['status']!==200||!is_array($b)||($b['domainId'] ?? '')!==$config['domainId']||!is_bool($b['published'] ?? null))return ['status'=>503];
+ if($slug!==''&&$b['published']===true)return ['status'=>204];
+ $target=$b['openingUrl'] ?? '';$p=is_string($target)?parse_url($target):false;
+ if(!$p||!isset($p['host'])||!in_array($p['scheme'] ?? '',['http','https'],true)||isset($p['user'])||isset($p['pass'])||strlen($target)>4096||preg_match('/[\x00-\x20\x7f\\\\]/',$target)||strtolower(rtrim($p['host'],'.'))===strtolower(rtrim($config['hostname'],'.')))return ['status'=>503];
+ return ['status'=>302,'location'=>$target];
 }

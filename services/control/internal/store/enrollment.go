@@ -174,6 +174,9 @@ func credential(seed []byte, tokenHash, installation, proofHash string) string {
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 }
 func (s *Store) Enroll(ctx context.Context, token, installation, proof, hostname, method, version string) (Agent, string, error) {
+	return s.EnrollRouting(ctx, token, installation, proof, hostname, method, version, 0)
+}
+func (s *Store) EnrollRouting(ctx context.Context, token, installation, proof, hostname, method, version string, routingVersion int) (Agent, string, error) {
 	seed, err := s.Seed(ctx)
 	if err != nil {
 		return Agent{}, "", err
@@ -228,7 +231,7 @@ func (s *Store) Enroll(ctx context.Context, token, installation, proof, hostname
 		return Agent{}, "", ErrExpired
 	}
 	a := Agent{security.Token(), domain, method, version}
-	if _, err = tx.Exec(ctx, "INSERT INTO agents(id,domain_id,installation_id,credential_hash,method,version) VALUES($1,$2,$3,$4,$5,$6)", a.ID, domain, installation, security.Digest(secret), method, version); err != nil {
+	if _, err = tx.Exec(ctx, "INSERT INTO agents(id,domain_id,installation_id,credential_hash,method,version,routing_version) VALUES($1,$2,$3,$4,$5,$6,$7)", a.ID, domain, installation, security.Digest(secret), method, version, routingVersion); err != nil {
 		return a, "", resourceError(err)
 	}
 	if _, err = tx.Exec(ctx, "UPDATE install_tokens SET used_at=now(),proof_hash=$2,agent_id=$3 WHERE token_hash=$1", hash, proofHash, a.ID); err != nil {
@@ -250,6 +253,20 @@ func saveSnapshot(ctx context.Context, tx pgx.Tx, domain string, seed []byte) er
 	if err != nil {
 		return err
 	}
+	if d.OpeningURL != "" {
+		if !policy.URL(d.OpeningURL, d.Hostname) {
+			return ErrPolicy
+		}
+		if d.Mode == "local" {
+			var incompatible bool
+			if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM agents WHERE domain_id=$1 AND revoked_at IS NULL AND routing_version<3)", domain).Scan(&incompatible); err != nil {
+				return err
+			}
+			if incompatible {
+				return ErrRoutingCapability
+			}
+		}
+	}
 	snapshot := Snapshot{Revision: d.DesiredRevision, LeaseExpiresAt: time.Now().UTC().Add(24 * time.Hour), Domain: d, Links: []Link{}, Rules: []policy.ScopedRule{}}
 	rows, err := tx.Query(ctx, "SELECT "+linkColumns+" FROM links WHERE domain_id=$1 AND state='published' ORDER BY id", domain)
 	if err != nil {
@@ -262,6 +279,11 @@ func saveSnapshot(ctx context.Context, tx pgx.Tx, domain string, seed []byte) er
 			return err
 		}
 		l.DraftDestination = nil
+		l.DraftRouting = nil
+		if err = policy.ValidateRouting(l.Routing, d.Hostname); err != nil {
+			rows.Close()
+			return err
+		}
 		snapshot.Links = append(snapshot.Links, l)
 	}
 	err = rows.Err()
@@ -288,6 +310,17 @@ func saveSnapshot(ctx context.Context, tx pgx.Tx, domain string, seed []byte) er
 	for _, r := range snapshot.Rules {
 		if r.Scope != "link" || ids[*r.ScopeID] {
 			filtered = append(filtered, r)
+		}
+	}
+	for _, link := range snapshot.Links {
+		if link.Routing != nil && d.Mode == "local" {
+			var compatible bool
+			if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM agents WHERE domain_id=$1 AND revoked_at IS NULL AND routing_version >= $2)", domain, requiredRoutingVersion(link.Routing)).Scan(&compatible); err != nil {
+				return err
+			}
+			if !compatible {
+				return ErrRoutingCapability
+			}
 		}
 	}
 	snapshot.Rules = filtered
@@ -352,6 +385,7 @@ func (s *Store) AgentSnapshot(ctx context.Context, a Agent) ([]byte, string, str
 
 type QueueHealth struct {
 	Buffered, WriteErrors int64
+	RoutingVersion        int
 	ProtectionVersion     int
 }
 
@@ -387,7 +421,34 @@ func (s *Store) Heartbeat(ctx context.Context, a Agent, revision int64, version 
 	if len(health) > 0 {
 		q = health[0]
 	}
-	if _, err = tx.Exec(ctx, "UPDATE agents SET version=$2,queue_depth=$3,queue_bytes=$4,dropped_events=$5,geo_release=$6,feed_version=$7,buffered_events=$8,queue_write_errors=$9,protection_version=$10 WHERE id=$1", a.ID, version, depth, bytes, dropped, geo, feed, q.Buffered, q.WriteErrors, q.ProtectionVersion); err != nil {
+	if q.RoutingVersion < 4 {
+		var requires bool
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND state='published' AND routing->>'proxyCheck'='true' AND routing ? 'ipQualityBlock')", a.DomainID).Scan(&requires); err != nil {
+			return err
+		}
+		if requires {
+			return ErrRoutingCapability
+		}
+	}
+	if q.RoutingVersion < 3 {
+		var root bool
+		if err = tx.QueryRow(ctx, "SELECT opening_url<>'' FROM domains WHERE id=$1", a.DomainID).Scan(&root); err != nil {
+			return err
+		}
+		if root {
+			return ErrRoutingCapability
+		}
+	}
+	if q.RoutingVersion < 2 {
+		var requires bool
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND state='published' AND routing IS NOT NULL AND ($2=0 OR routing->>'proxyCheck'='true'))", a.DomainID, q.RoutingVersion).Scan(&requires); err != nil {
+			return err
+		}
+		if requires {
+			return ErrRoutingCapability
+		}
+	}
+	if _, err = tx.Exec(ctx, "UPDATE agents SET version=$2,queue_depth=$3,queue_bytes=$4,dropped_events=$5,geo_release=$6,feed_version=$7,buffered_events=$8,queue_write_errors=$9,protection_version=$10,routing_version=$11 WHERE id=$1", a.ID, version, depth, bytes, dropped, geo, feed, q.Buffered, q.WriteErrors, q.ProtectionVersion, q.RoutingVersion); err != nil {
 		return err
 	}
 	if previous == nil || *previous != revision {

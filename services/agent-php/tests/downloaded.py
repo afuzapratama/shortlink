@@ -41,6 +41,6 @@ with tempfile.TemporaryDirectory(prefix='php-downloaded-') as temp:
   s,html,_=request('/__agent/setup');assert 'name="token"' not in html and 'Agent sudah terpasang' in html
   s,_,headers=request('/hello',headers={'X-Forwarded-For':'1.1.1.1','User-Agent':config['ua']});assert s==302 and headers['Location']=='https://example.org/first'
   for path in ['/private/config.json','/private/pending.json']:
-   s,html,_=request(path);assert s==404 and 'credential' not in html
+   s,html,_=request(path);assert s==503 and 'credential' not in html
   print(json.dumps({'downloadVerified':True,'wizardInstalled':True,'setupLocked':True,'redirect':302,'domainId':config['domainId']}))
  finally:os.killpg(php.pid,signal.SIGTERM);php.wait(timeout=5);log.close()

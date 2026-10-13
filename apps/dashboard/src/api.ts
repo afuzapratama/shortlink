@@ -4,7 +4,7 @@ const messages:Record<string,string>={
  factor_invalid:'Password atau kode tidak valid, kedaluwarsa, atau sudah dipakai.',
  invalid_filter:'Filter atau periode tidak valid. Gunakan batas menit dalam retensi data.',invalid_cursor:'Halaman sudah tidak sesuai filter. Muat ulang log.',
  artifact_unavailable:'Belum ada rilis agent yang tersedia. Publisher perlu menyiapkan paket terlebih dahulu.',
- capability_missing:'Agent lokal membutuhkan dukungan B13 dan heartbeat terbaru. Mode API dievaluasi pusat; challenge belum tersedia.',domain_not_ready:'Verifikasi domain dan enroll agent sesuai metode instalasi sebelum publish.',rule_set_conflict:'Konfigurasi untuk cakupan ini sudah ada.',
+ capability_missing:'Agent lokal belum mendukung konfigurasi yang dipilih. Perbarui runtime agent dan periksa heartbeat sebelum publish. Mode API dievaluasi di pusat.',domain_not_ready:'Verifikasi domain dan enroll agent sesuai metode instalasi sebelum publish.',rule_set_conflict:'Konfigurasi untuk cakupan ini sudah ada.',
  unauthorized:'Email/password salah atau sesi berakhir. Silakan masuk kembali.',
  forbidden:'Permintaan ditolak. Periksa sesi dan alamat dashboard.',
  domain_conflict:'Domain sudah terdaftar.',slug_conflict:'Slug sudah dipakai pada domain ini.',

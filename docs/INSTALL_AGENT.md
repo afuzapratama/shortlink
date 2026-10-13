@@ -104,3 +104,5 @@ B18: rotasi credential dan migrasi origin dijalankan dengan private config pada 
 ## B19 — Ubuntu 26.04
 
 Rilis immutable v0.19.1-b19 menambahkan instalasi Docker resmi untuk Ubuntu 26.04 (Resolute), termasuk ARM64. Rilis B13 tetap tersedia dan tidak diubah. Status pengujian publik dan konfigurasi aaPanel dicatat pada [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md).
+
+Updater v0.20.4 mempertahankan Caddyfile yang sudah ada dan konfigurasi Compose operator (proxy, service tambahan, volume, logging); hanya image service agent yang diubah. Pada first install, placeholder image proxy diselesaikan ketika digest Caddy tersedia. Konfigurasi tambahan pada VPS multi-service tidak ditimpa.

@@ -54,6 +54,9 @@ func (s *Store) routing(ctx context.Context, tx pgx.Tx, domain string, revision 
 	ids := map[string]bool{}
 	links := map[string]Link{}
 	for _, l := range snap.Links {
+		if err := policy.ValidateRouting(l.Routing, snap.Domain.Hostname); err != nil {
+			return nil, err
+		}
 		ids[l.ID] = true
 		links[l.Slug] = l
 	}

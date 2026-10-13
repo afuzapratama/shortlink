@@ -42,6 +42,9 @@ func validTrafficEvent(e policy.TrafficEvent) bool {
 	if e.FeedVersion != nil && !risk.ValidVersion(*e.FeedVersion) {
 		return false
 	}
+	if e.Proxy != nil && (!slices.Contains([]string{"known", "disabled", "unavailable", "busy", "invalid_ip", "provider_limited", "denied", "budget_exhausted", "invalid_response"}, e.Proxy.Status) || (e.Proxy.Detected && e.Proxy.Status != "known")) {
+		return false
+	}
 	if e.Risk != nil && !validRiskObservation(*e.Risk) {
 		return false
 	}

@@ -7,7 +7,7 @@ source=ROOT/'services/agent-php'
 code=(source/'private/src/Adapter.php').read_text();version=re.search(r"const VERSION = '(v[0-9.a-z-]+)';",code)[1]
 out=pathlib.Path(a.output).resolve();out.parent.mkdir(parents=True,exist_ok=True)
 if out.exists():p.error('Output already exists; preserve immutable builds and choose a new directory')
-files=['public/index.php','public/setup.css','public/.htaccess','private/src/Adapter.php','private/src/Setup.php','private/bootstrap.example.json']
+files=['public/index.php','public/setup.css','public/.htaccess','private/src/Adapter.php','private/src/Setup.php','private/src/Manage.php','private/bootstrap.example.json']
 with tempfile.TemporaryDirectory(prefix='.php-release-',dir=out.parent) as temp:
  staging=pathlib.Path(temp);name=f'agent-php-{version}.zip';archive=staging/name
  with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:

@@ -1,5 +1,7 @@
 # Instalasi agent PHP tanpa Docker
 
+Revisi lokal B20 memakai ZIP **v0.20.1-b20**, menambah `private/src/Manage.php` untuk [URL pembuka dan manage](AGENT_MANAGE.md). Paket B17 di tutorial baseline tetap immutable; pilih manifest/version terbaru yang hendak dipasang dan pertahankan config/bootstrap saat update. Unknown/root kini opening redirect atau 503 bila kosong; bukan 404 publik biasa.
+
 B17 menyediakan download ZIP PHP signed, bootstrap domain dan tutorial melalui panel Paket PHP pada detail domain mode API. Wizard operasional dibuat pada B16. Mode API memakai GeoLite, deteksi device/OS/browser dan aturan di pusat; tidak membutuhkan MMDB, database, cron, Composer atau Docker pada hosting. PHP bukan mesin aturan lokal.
 
 ## Prasyarat dan layout
@@ -88,6 +90,19 @@ Preflight memeriksa private path, penyimpanan, pusat dan routing sebelum token d
 Setelah response enrollment dan probe API valid, `config.json` atomik menjadi marker aktif sekaligus pengunci setup. Restart tidak membuka wizard kembali. Kegagalan penyimpanan/probe mempertahankan pending proof untuk retry. File lock memerlukan filesystem lokal yang benar; NFS/shared multi-host belum diterima. Atomic rename dan fsync file tidak dianggap sebagai bukti ketahanan semua konfigurasi hosting terhadap power loss.
 
 Jika jendela pemulihan habis: revoke agent di pusat, minta token baru, lalu operator dapat menghapus pending state/sesi lama di folder private. Membuka ulang instalasi aktif juga memerlukan revoke dari pusat dan tindakan operator pada file private; tidak ada tombol reset publik. Jangan menghapus konfigurasi aktif untuk sekadar update source paket.
+
+## Update dan rollback paket PHP
+
+Update dilakukan operator, bukan dengan membuka ulang wizard. Verifikasi signed manifest, expected version dan checksum ZIP memakai verifier dari checkout tepercaya. Periksa kompatibilitas API dan format config kandidat; jika berubah tanpa dukungan rollback, hentikan update sampai ada prosedur migrasi.
+
+1. Ekstrak kandidat di direktori staging **di luar semua web root**. Simpan salinan paket sebelumnya serta backup config/bootstrap privat, dengan akses owner saja. Jangan memasukkan backup ke public atau Git.
+2. Aktifkan maintenance pada **domain agent tersebut** sebelum mengganti file, agar satu request tidak mencampur source dua versi. Pertahankan private config, pending state, sesi dan identitas; jangan menyalin bootstrap example ke konfigurasi aktif. Maintenance dapat mengembalikan 503 tanpa redirect.
+3. Ganti `private/src` dan file public paket sebagai satu perubahan terkoordinasi saat maintenance. Pertahankan custom `SHORTLINK_PRIVATE_DIR`, konfigurasi vhost, permission dan `.htaccess` hosting; gabungkan aturan paket yang diperlukan. Public root hanya berisi file public.
+4. Invalidate OPcache melalui mekanisme panel/runtime hosting yang tersedia; jangan membuat endpoint reset OPcache publik. Periksa syntax memakai versi PHP yang sama dengan web runtime, lalu buka kembali domain.
+5. Periksa setup tetap terkunci, probe publik pusat, redirect published, unknown slug, block/fallback dan pencatatan event. Pantau HTTP503 dan latency. Catat versi/checksum yang dipasang; wizard terkunci saja tidak membuktikan upgrade berhasil.
+6. Jika gagal, aktifkan maintenance lagi, kembalikan source/file public dan konfigurasi routing sebelumnya, invalidate OPcache, lalu jalankan pemeriksaan yang sama. Pertahankan credential/config aktif yang masih kompatibel; rollback source bukan restore database atau rotasi key.
+
+B19 menguji instalasi dua hosting; update/rollback source PHP pada hosting nyata masih menjadi gate B20. Backup credential harus disimpan privat, karena kebocoran backup memberi akses agent meskipun paket ZIP tidak membawa secret.
 
 ## Uji lokal
 

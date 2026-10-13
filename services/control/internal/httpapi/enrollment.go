@@ -20,6 +20,8 @@ import (
 
 func (s *Server) enrollmentError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, store.ErrRoutingCapability):
+		s.fail(w, 422, "capability_missing", "Upgrade the local agent for link fallback/audience routing before using this configuration.")
 	case errors.Is(err, store.ErrPrerequisite):
 		s.fail(w, 422, "preflight_failed", "Verify domain ownership and revoke any existing active agent first.")
 	case errors.Is(err, store.ErrBinding):
@@ -299,15 +301,16 @@ func (s *Server) enrollAgent(w http.ResponseWriter, r *http.Request) {
 		Hostname          string `json:"hostname"`
 		Method            string `json:"method"`
 		Version           string `json:"version"`
+		RoutingVersion    int    `json:"routingVersion"`
 	}
 	if !s.decode(w, r, &input) {
 		return
 	}
-	if !security.ValidToken(input.Token) || !security.ValidToken(input.InstallationID) || !security.ValidToken(input.InstallationProof) || len(input.Version) < 1 || len(input.Version) > 128 {
+	if input.RoutingVersion < 0 || input.RoutingVersion > 4 || !security.ValidToken(input.Token) || !security.ValidToken(input.InstallationID) || !security.ValidToken(input.InstallationProof) || len(input.Version) < 1 || len(input.Version) > 128 {
 		s.fail(w, 400, "validation_failed", "Provide a valid token, installation ID and random 32-byte proof.")
 		return
 	}
-	a, secret, err := s.store.Enroll(r.Context(), input.Token, input.InstallationID, input.InstallationProof, input.Hostname, input.Method, input.Version)
+	a, secret, err := s.store.EnrollRouting(r.Context(), input.Token, input.InstallationID, input.InstallationProof, input.Hostname, input.Method, input.Version, input.RoutingVersion)
 	if err != nil {
 		s.enrollmentError(w, err)
 		return
@@ -340,6 +343,12 @@ func (s *Server) agentRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch r.URL.Path {
+	case "/v1/agents/opening":
+		s.agentOpening(w, r, a)
+	case "/v1/agents/manage/exchange", "/v1/agents/manage/session":
+		s.agentManage(w, r, a)
+	case "/v1/agents/proxycheck":
+		s.proxyAgent(w, r, a)
 	case "/v1/decisions":
 		s.makeDecision(w, r, a)
 	case "/v1/agents/probe":
@@ -382,16 +391,17 @@ func (s *Server) agentRequest(w http.ResponseWriter, r *http.Request) {
 			DroppedEvents     *int64  `json:"droppedEvents"`
 			BufferedEvents    int64   `json:"bufferedEvents"`
 			QueueWriteErrors  int64   `json:"queueWriteErrors"`
+			RoutingVersion    int     `json:"routingVersion"`
 			ProtectionVersion int     `json:"protectionVersion"`
 		}
 		if !s.decode(w, r, &h) {
 			return
 		}
-		if (h.FeedVersion != nil && !risk.ValidVersion(*h.FeedVersion)) || (h.GeoRelease != nil && !geoip.ValidRelease(*h.GeoRelease)) || h.ProtectionVersion < 0 || h.ProtectionVersion > 1 || h.BufferedEvents < 0 || h.QueueWriteErrors < 0 || h.AppliedRevision == nil || h.QueueDepth == nil || h.QueueBytes == nil || h.DroppedEvents == nil || *h.AppliedRevision < 0 || *h.QueueDepth < 0 || *h.QueueBytes < 0 || *h.DroppedEvents < 0 || len(h.Version) < 1 || len(h.Version) > 128 {
+		if (h.FeedVersion != nil && !risk.ValidVersion(*h.FeedVersion)) || (h.GeoRelease != nil && !geoip.ValidRelease(*h.GeoRelease)) || h.RoutingVersion < 0 || h.RoutingVersion > 4 || h.ProtectionVersion < 0 || h.ProtectionVersion > 1 || h.BufferedEvents < 0 || h.QueueWriteErrors < 0 || h.AppliedRevision == nil || h.QueueDepth == nil || h.QueueBytes == nil || h.DroppedEvents == nil || *h.AppliedRevision < 0 || *h.QueueDepth < 0 || *h.QueueBytes < 0 || *h.DroppedEvents < 0 || len(h.Version) < 1 || len(h.Version) > 128 {
 			s.fail(w, 400, "validation_failed", "Heartbeat fields are invalid.")
 			return
 		}
-		if err = s.store.Heartbeat(r.Context(), a, *h.AppliedRevision, h.Version, *h.QueueDepth, *h.QueueBytes, *h.DroppedEvents, h.GeoRelease, h.FeedVersion, store.QueueHealth{Buffered: h.BufferedEvents, WriteErrors: h.QueueWriteErrors, ProtectionVersion: h.ProtectionVersion}); err != nil {
+		if err = s.store.Heartbeat(r.Context(), a, *h.AppliedRevision, h.Version, *h.QueueDepth, *h.QueueBytes, *h.DroppedEvents, h.GeoRelease, h.FeedVersion, store.QueueHealth{Buffered: h.BufferedEvents, WriteErrors: h.QueueWriteErrors, ProtectionVersion: h.ProtectionVersion, RoutingVersion: h.RoutingVersion}); err != nil {
 			s.enrollmentError(w, err)
 			return
 		}

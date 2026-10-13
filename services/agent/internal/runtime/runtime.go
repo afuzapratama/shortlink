@@ -34,19 +34,21 @@ const maxSnapshotBytes = 8 << 20
 var slugPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,80}$`)
 
 type Link struct {
-	ID          string `json:"id"`
-	DomainID    string `json:"domainId"`
-	Slug        string `json:"slug"`
-	Destination string `json:"destination"`
-	State       string `json:"state"`
+	Routing     *policy.LinkRouting `json:"routing,omitempty"`
+	ID          string              `json:"id"`
+	DomainID    string              `json:"domainId"`
+	Slug        string              `json:"slug"`
+	Destination string              `json:"destination"`
+	State       string              `json:"state"`
 }
 type Snapshot struct {
 	Revision       int64     `json:"revision"`
 	LeaseExpiresAt time.Time `json:"leaseExpiresAt"`
 	Domain         struct {
-		ID       string `json:"id"`
-		Hostname string `json:"hostname"`
-		Mode     string `json:"mode"`
+		OpeningURL string `json:"openingUrl"`
+		ID         string `json:"id"`
+		Hostname   string `json:"hostname"`
+		Mode       string `json:"mode"`
 	} `json:"domain"`
 	Links       []Link              `json:"links"`
 	Rules       []policy.ScopedRule `json:"rules"`
@@ -61,6 +63,7 @@ type Envelope struct {
 type active struct {
 	snapshot Snapshot
 	routes   map[string]string
+	routing  map[string]*policy.LinkRouting
 	linkIDs  map[string]string
 	engine   *policy.Engine
 	payload  []byte
@@ -72,6 +75,7 @@ type Agent struct {
 	cfg       Config
 	key       ed25519.PublicKey
 	proxies   []netip.Prefix
+	proxy     proxyCache
 	client    *http.Client
 	current   atomic.Pointer[active]
 	syncMu    sync.Mutex
@@ -154,6 +158,9 @@ func (a *Agent) verify(raw []byte, now time.Time, requireFresh bool) (*active, e
 	if s.Domain.ID != a.cfg.DomainID || s.Domain.Hostname != a.cfg.Hostname || s.Domain.Mode != "local" {
 		return nil, errors.New("snapshot binding mismatch")
 	}
+	if s.Domain.OpeningURL != "" && !policy.URL(s.Domain.OpeningURL, a.cfg.Hostname) {
+		return nil, errors.New("invalid domain opening URL")
+	}
 	s.Protection = policy.NormalizeProtection(s.Protection)
 	if err := policy.ValidateProtection(s.Protection); err != nil {
 		return nil, err
@@ -164,9 +171,14 @@ func (a *Agent) verify(raw []byte, now time.Time, requireFresh bool) (*active, e
 	}
 	routes := make(map[string]string, len(s.Links))
 	linkIDs := map[string]string{}
+	routing := map[string]*policy.LinkRouting{}
 	ids := map[string]bool{}
 
 	for _, l := range s.Links {
+		if err := policy.ValidateRouting(l.Routing, a.cfg.Hostname); err != nil {
+			return nil, err
+		}
+		routing[l.Slug] = l.Routing
 		if l.ID == "" || ids[l.ID] || l.DomainID != a.cfg.DomainID || l.State != "published" || !slugPattern.MatchString(l.Slug) {
 			return nil, errors.New("invalid published link")
 		}
@@ -186,7 +198,7 @@ func (a *Agent) verify(raw []byte, now time.Time, requireFresh bool) (*active, e
 		return nil, err
 	}
 	h := sha256.Sum256(payload)
-	return &active{snapshot: s, routes: routes, linkIDs: linkIDs, engine: engine, payload: payload, envelope: e, etag: fmt.Sprintf(`"%x"`, h), limiter: risk.NewLimiter(s.Protection.RatePerSecond, s.Protection.Burst, 16384)}, nil
+	return &active{snapshot: s, routes: routes, routing: routing, linkIDs: linkIDs, engine: engine, payload: payload, envelope: e, etag: fmt.Sprintf(`"%x"`, h), limiter: risk.NewLimiter(s.Protection.RatePerSecond, s.Protection.Burst, 16384)}, nil
 }
 func atomicFile(path string, data []byte) error {
 	f, err := os.CreateTemp(filepath.Dir(path), ".pending-*")
@@ -303,7 +315,7 @@ func (a *Agent) Sync(ctx context.Context) error {
 }
 func (a *Agent) heartbeat(ctx context.Context, revision int64) error {
 	stats, _ := a.queue.Stats(ctx)
-	body, _ := json.Marshal(map[string]any{"version": Version, "appliedRevision": revision, "geoRelease": a.geo.ActiveRelease(), "feedVersion": a.feeds.Version(), "protectionVersion": 1, "queueDepth": stats.Depth, "queueBytes": stats.Bytes, "droppedEvents": stats.Dropped, "bufferedEvents": stats.Buffered, "queueWriteErrors": stats.WriteErrors})
+	body, _ := json.Marshal(map[string]any{"version": Version, "appliedRevision": revision, "geoRelease": a.geo.ActiveRelease(), "feedVersion": a.feeds.Version(), "protectionVersion": 1, "routingVersion": 4, "queueDepth": stats.Depth, "queueBytes": stats.Bytes, "droppedEvents": stats.Dropped, "bufferedEvents": stats.Buffered, "queueWriteErrors": stats.WriteErrors})
 	resp, err := a.request(ctx, http.MethodPost, "/v1/agents/heartbeat", bytes.NewReader(body))
 	if err != nil {
 		return errors.New("heartbeat unavailable")
@@ -388,6 +400,14 @@ func (a *Agent) ClientIP(r *http.Request) (netip.Addr, error) {
 func (a *Agent) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if r.URL.Path == "/__agent" || strings.HasPrefix(r.URL.Path, "/__agent/") {
+		if r.URL.Path == "/__agent/manage" && r.URL.RawPath == "" {
+			a.manage(w, r)
+		} else {
+			http.NotFound(w, r)
+		}
+		return
+	}
 	if r.URL.Path == "/.well-known/shortlink-ready" {
 		a.readinessProbe(w, r)
 		return
@@ -429,19 +449,27 @@ func (a *Agent) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	state := a.current.Load()
-	if a.blocked.Load() || state == nil || !time.Now().Before(state.snapshot.LeaseExpiresAt) || !a.GeoReady(state) {
+	if a.blocked.Load() || state == nil || !time.Now().Before(state.snapshot.LeaseExpiresAt) {
 		http.Error(w, "configuration unavailable", 503)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/health/") || strings.HasPrefix(r.URL.Path, "/.well-known/") {
+		http.NotFound(w, r)
 		return
 	}
 	// One exact, unescaped segment; incoming query parameters are not forwarded in B06.
 	slug := strings.TrimPrefix(r.URL.Path, "/")
 	if r.URL.RawPath != "" || !slugPattern.MatchString(slug) {
-		http.NotFound(w, r)
+		a.opening(w, r, state)
 		return
 	}
 	destination, ok := state.routes[slug]
 	if !ok {
-		http.NotFound(w, r)
+		a.opening(w, r, state)
+		return
+	}
+	if !a.GeoReady(state) {
+		http.Error(w, "configuration unavailable", 503)
 		return
 	}
 	signals := policy.Detect(r.UserAgent())
@@ -463,7 +491,13 @@ func (a *Agent) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if state.snapshot.Protection.Mode != "off" {
 		signals.RateLimited = !state.limiter.Allow(ip, time.Now())
 	}
-	decision := state.engine.EvaluateProtection(state.linkIDs[slug], destination, signals, state.snapshot.Protection)
+	if routing := state.routing[slug]; routing != nil && routing.ProxyCheck {
+		result := a.lookupProxy(r.Context(), ip)
+		signals.ProxyDetected = result.Detected
+		signals.ProxyStatus = result.Status
+		signals.IPQuality = result.Flags
+	}
+	decision := state.engine.EvaluateRouting(state.linkIDs[slug], destination, state.routing[slug], signals, state.snapshot.Protection)
 	if r.Method == http.MethodGet {
 		var id [32]byte
 		if _, e := rand.Read(id[:]); e == nil {
@@ -556,3 +590,12 @@ func (a *Agent) GeoReady(state *active) bool {
 	return true
 }
 func (a *Agent) LookupGeo(ip netip.Addr) (geoip.Result, error) { return a.geo.Lookup(ip) }
+
+func (a *Agent) opening(w http.ResponseWriter, r *http.Request, state *active) {
+	if state.snapshot.Domain.OpeningURL == "" {
+		http.Error(w, "URL pembuka belum diisi.", 503)
+		return
+	}
+	w.Header().Set("Location", state.snapshot.Domain.OpeningURL)
+	w.WriteHeader(http.StatusFound)
+}

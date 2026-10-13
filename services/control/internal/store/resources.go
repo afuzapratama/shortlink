@@ -2,13 +2,17 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
+	"shortlink.local/policy"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+var ErrRoutingCapability = errors.New("local agent requires link routing version 1")
 var ErrConflict = errors.New("revision conflict")
 var ErrDuplicate = errors.New("duplicate resource")
 var ErrImmutable = errors.New("published URL is immutable")
@@ -20,6 +24,7 @@ type Capabilities struct {
 	Challenge       bool `json:"challenge"`
 }
 type Domain struct {
+	OpeningURL      string       `json:"openingUrl"`
 	ID              string       `json:"id"`
 	Hostname        string       `json:"hostname"`
 	Mode            string       `json:"mode"`
@@ -31,27 +36,36 @@ type Domain struct {
 	Capabilities    Capabilities `json:"capabilities"`
 }
 type Link struct {
-	ID               string  `json:"id"`
-	DomainID         string  `json:"domainId"`
-	Slug             string  `json:"slug"`
-	Destination      string  `json:"destination"`
-	DraftDestination *string `json:"draftDestination,omitempty"`
-	State            string  `json:"state"`
-	Revision         int64   `json:"revision"`
-	Clicks           int64   `json:"clicks"`
+	Routing          *policy.LinkRouting `json:"routing,omitempty"`
+	DraftRouting     *policy.LinkRouting `json:"draftRouting,omitempty"`
+	ID               string              `json:"id"`
+	DomainID         string              `json:"domainId"`
+	Slug             string              `json:"slug"`
+	Destination      string              `json:"destination"`
+	DraftDestination *string             `json:"draftDestination,omitempty"`
+	State            string              `json:"state"`
+	Revision         int64               `json:"revision"`
+	Clicks           int64               `json:"clicks"`
 }
 
-const domainColumns = "id,hostname,mode,CASE WHEN readiness='ready' AND ((mode='api' AND (probe_checked_at IS NULL OR probe_checked_at<now()-interval '5 minutes' OR applied_revision IS DISTINCT FROM desired_revision)) OR (mode='local' AND (last_seen_at IS NULL OR last_seen_at<now()-interval '90 seconds' OR applied_revision IS DISTINCT FROM desired_revision OR probe_checked_at IS NULL OR probe_checked_at<now()-interval '5 minutes'))) THEN 'attention' ELSE readiness END,CASE WHEN mode='local' AND connection='online' AND last_seen_at<now()-interval '90 seconds' THEN 'offline' WHEN mode='api' AND connection='online' AND last_seen_at<now()-interval '90 seconds' THEN 'idle' ELSE connection END,desired_revision,applied_revision,last_seen_at"
-const linkColumns = "id,domain_id,slug,destination,draft_destination,state,revision,clicks"
+const domainColumns = "id,hostname,mode,CASE WHEN readiness='ready' AND ((mode='api' AND (probe_checked_at IS NULL OR probe_checked_at<now()-interval '5 minutes' OR applied_revision IS DISTINCT FROM desired_revision)) OR (mode='local' AND (last_seen_at IS NULL OR last_seen_at<now()-interval '90 seconds' OR applied_revision IS DISTINCT FROM desired_revision OR probe_checked_at IS NULL OR probe_checked_at<now()-interval '5 minutes'))) THEN 'attention' ELSE readiness END,CASE WHEN mode='local' AND connection='online' AND last_seen_at<now()-interval '90 seconds' THEN 'offline' WHEN mode='api' AND connection='online' AND last_seen_at<now()-interval '90 seconds' THEN 'idle' ELSE connection END,desired_revision,applied_revision,last_seen_at,opening_url"
+const linkColumns = "id,domain_id,slug,destination,draft_destination,state,revision,clicks,routing,draft_routing"
 
 func scanDomain(row pgx.Row) (Domain, error) {
 	var d Domain
-	err := row.Scan(&d.ID, &d.Hostname, &d.Mode, &d.Readiness, &d.Connection, &d.DesiredRevision, &d.AppliedRevision, &d.LastSeenAt)
+	err := row.Scan(&d.ID, &d.Hostname, &d.Mode, &d.Readiness, &d.Connection, &d.DesiredRevision, &d.AppliedRevision, &d.LastSeenAt, &d.OpeningURL)
 	return d, err
 }
 func scanLink(row pgx.Row) (Link, error) {
 	var l Link
-	err := row.Scan(&l.ID, &l.DomainID, &l.Slug, &l.Destination, &l.DraftDestination, &l.State, &l.Revision, &l.Clicks)
+	var routing, draft []byte
+	err := row.Scan(&l.ID, &l.DomainID, &l.Slug, &l.Destination, &l.DraftDestination, &l.State, &l.Revision, &l.Clicks, &routing, &draft)
+	if err == nil && routing != nil {
+		err = json.Unmarshal(routing, &l.Routing)
+	}
+	if err == nil && draft != nil {
+		err = json.Unmarshal(draft, &l.DraftRouting)
+	}
 	return l, err
 }
 func resourceError(err error) error {
@@ -110,12 +124,15 @@ func (s *Store) Domains(ctx context.Context, after string, limit int) ([]Domain,
 	return result, rows.Err()
 }
 func (s *Store) CreateLink(ctx context.Context, id, domain, slug, destination string, actor ...string) (Link, error) {
+	return s.CreateLinkRouting(ctx, id, domain, slug, destination, nil, actor...)
+}
+func (s *Store) CreateLinkRouting(ctx context.Context, id, domain, slug, destination string, routing *policy.LinkRouting, actor ...string) (Link, error) {
 	tx, err := s.DB.Begin(ctx)
 	if err != nil {
 		return Link{}, err
 	}
 	defer tx.Rollback(ctx)
-	l, err := scanLink(tx.QueryRow(ctx, "INSERT INTO links(id,domain_id,slug,destination) VALUES($1,$2,$3,$4) RETURNING "+linkColumns, id, domain, slug, destination))
+	l, err := scanLink(tx.QueryRow(ctx, "INSERT INTO links(id,domain_id,slug,destination,routing) VALUES($1,$2,$3,$4,$5) RETURNING "+linkColumns, id, domain, slug, destination, routing))
 	if err != nil {
 		return l, resourceError(err)
 	}
@@ -144,6 +161,9 @@ func (s *Store) Links(ctx context.Context, after, domain string, limit int) ([]L
 	return result, rows.Err()
 }
 func (s *Store) UpdateLink(ctx context.Context, id, domain, slug, destination string, expected int64, actor ...string) (Link, error) {
+	return s.UpdateLinkRouting(ctx, id, domain, slug, destination, expected, nil, actor...)
+}
+func (s *Store) UpdateLinkRouting(ctx context.Context, id, domain, slug, destination string, expected int64, routing *policy.LinkRouting, actor ...string) (Link, error) {
 	tx, err := s.DB.Begin(ctx)
 	if err != nil {
 		return Link{}, err
@@ -180,7 +200,19 @@ func (s *Store) UpdateLink(ctx context.Context, id, domain, slug, destination st
 			draft = &destination
 		}
 	}
-	updated, err := scanLink(tx.QueryRow(ctx, "UPDATE links SET domain_id=$2,slug=$3,destination=$4,draft_destination=$5,revision=revision+1 WHERE id=$1 RETURNING "+linkColumns, id, domain, slug, published, draft))
+	activeRouting, draftRouting := old.Routing, old.DraftRouting
+	if routing != nil {
+		if old.State == "published" {
+			draftRouting = routing
+			if reflect.DeepEqual(routing, old.Routing) {
+				draftRouting = nil
+			}
+		} else {
+			activeRouting = routing
+			draftRouting = nil
+		}
+	}
+	updated, err := scanLink(tx.QueryRow(ctx, "UPDATE links SET domain_id=$2,slug=$3,destination=$4,draft_destination=$5,routing=$6,draft_routing=$7,revision=revision+1 WHERE id=$1 RETURNING "+linkColumns, id, domain, slug, published, draft, activeRouting, draftRouting))
 	if err != nil {
 		return old, resourceError(err)
 	}

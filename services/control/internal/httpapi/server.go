@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"shortlink.local/control/internal/config"
+	"shortlink.local/control/internal/proxycheck"
 	"shortlink.local/control/internal/security"
 	"shortlink.local/control/internal/store"
 	"shortlink.local/policy"
@@ -35,12 +36,13 @@ type Server struct {
 	trafficSlots    chan struct{}
 	decisionSlots   chan struct{}
 	decisionWaiting chan struct{}
+	proxy           *proxycheck.Client
 	decisions       decisionRuntime
 	publicProbe     func(context.Context, string, string, string) (policy.ProbeState, error)
 }
 
 func New(cfg config.Config, s *store.Store, logger *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: s, logger: logger, dummyHash: security.HashPassword(security.Token()), hashSlots: make(chan struct{}, 2), lookupTXT: net.DefaultResolver.LookupTXT, geoSlots: make(chan struct{}, 2), artifactSlots: make(chan struct{}, 2), probeSlots: make(chan struct{}, 2), trafficSlots: make(chan struct{}, 2), decisionSlots: make(chan struct{}, 16), decisionWaiting: make(chan struct{}, 16)}
+	return &Server{proxy: proxycheck.New(s.ProxyConfig, s.ReserveProxyQuery, nil), cfg: cfg, store: s, logger: logger, dummyHash: security.HashPassword(security.Token()), hashSlots: make(chan struct{}, 2), lookupTXT: net.DefaultResolver.LookupTXT, geoSlots: make(chan struct{}, 2), artifactSlots: make(chan struct{}, 2), probeSlots: make(chan struct{}, 2), trafficSlots: make(chan struct{}, 2), decisionSlots: make(chan struct{}, 16), decisionWaiting: make(chan struct{}, 16)}
 }
 func NormalizeEmail(value string) (string, bool) {
 	value = strings.ToLower(strings.TrimSpace(value))
@@ -125,7 +127,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.enrollAgent(w, r)
 	case "/v1/agents/install-context":
 		s.installContext(w, r)
-	case "/v1/agents/config", "/v1/agents/heartbeat", "/v1/events/batch", "/v1/decisions", "/v1/agents/probe":
+	case "/v1/agents/opening", "/v1/agents/manage/exchange", "/v1/agents/manage/session", "/v1/agents/proxycheck", "/v1/agents/config", "/v1/agents/heartbeat", "/v1/events/batch", "/v1/decisions", "/v1/agents/probe":
 		s.agentRequest(w, r)
 	default:
 		if r.URL.Path == "/v1/assets/php/manifest" || strings.HasPrefix(r.URL.Path, "/v1/assets/php/releases/") {
@@ -152,10 +154,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodGet && r.Method != http.MethodHead && !s.mutation(w, r, token) {
 				return
 			}
+			if s.domainManageAdmin(w, r, owner.ID) {
+				return
+			}
 			if s.controlAdmin(w, r, owner) {
 				return
 			}
 			if s.securityAdmin(w, r, owner, token) {
+				return
+			}
+			if r.URL.Path == "/v1/admin/system/proxycheck" || r.URL.Path == "/v1/admin/system/proxycheck/test" {
+				s.proxyAdmin(w, r, owner.ID)
 				return
 			}
 			if r.URL.Path == "/v1/admin/system/feeds" {

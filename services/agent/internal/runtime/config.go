@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-var Version = "b13-dev"
+var Version = "b20-dev"
 
 var hostnamePattern = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 
