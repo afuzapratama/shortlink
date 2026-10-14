@@ -21,6 +21,7 @@ export interface LinkRouting {
  proxyCheck?:boolean;proxyUnknownFallback?:boolean;fallback:string; country:string; device:Device|'*'; os:OperatingSystem|'*'; browser:BrowserFamily|'*';
 }
 export interface Shortlink {
+ createdAt?:string;disabled?:boolean;publishedRevision?:number|null;
  routing?:LinkRouting; draftRouting?:LinkRouting;
   id: string; domainId: string; slug: string; destination: string;
   state: 'draft' | 'published'; revision: number; clicks: number;
@@ -66,7 +67,7 @@ export interface LoginResult { status: 'authenticated' | 'mfa_required'; challen
 export interface Session { userId: string; email: string; role: 'owner'; mfaEnabled: boolean; csrfToken: string; }
 
 export interface PublishResult { revision:number; domainRevisions:{domainId:string;revision:number}[]; pendingAgentIds:string[]; publishedAt:string; }
-export interface PublishHistory {revision:number;publishedAt:string;}
+export interface PublishHistory {revision:number;publishedAt:string;destination?:string;routing?:LinkRouting;}
 
 export interface AgentArtifact {
  name:string;version:string;platform:string;size:number;sha256:string;downloadUrl:string;

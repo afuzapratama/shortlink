@@ -45,7 +45,7 @@ func (s *Store) RuleSet(ctx context.Context, id string) (RuleSet, error) {
 	return scanRule(s.DB.QueryRow(ctx, "SELECT "+ruleColumns+" FROM rule_sets WHERE id=$1", id))
 }
 func (s *Store) RuleSets(ctx context.Context, after string, limit int) ([]RuleSet, error) {
-	rows, err := s.DB.Query(ctx, "SELECT "+ruleColumns+" FROM rule_sets WHERE id>$1 ORDER BY id LIMIT $2", after, limit)
+	rows, err := s.DB.Query(ctx, "SELECT "+ruleColumns+" FROM rule_sets WHERE id>$1 AND (link_id IS NULL OR EXISTS(SELECT 1 FROM links WHERE links.id=rule_sets.link_id AND deleted_at IS NULL)) ORDER BY id LIMIT $2", after, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (s *Store) CreateRuleSet(ctx context.Context, scope string, binding *string
 	}
 	if scope == "link" {
 		var d string
-		if err = tx.QueryRow(ctx, "SELECT domain_id FROM links WHERE id=$1", binding).Scan(&d); err != nil {
+		if err = tx.QueryRow(ctx, "SELECT domain_id FROM links WHERE id=$1 AND deleted_at IS NULL", binding).Scan(&d); err != nil {
 			return RuleSet{}, err
 		}
 		domain = &d
@@ -136,8 +136,10 @@ type PublishResult struct {
 	PublishedAt     time.Time        `json:"publishedAt"`
 }
 type History struct {
-	Revision    int64     `json:"revision"`
-	PublishedAt time.Time `json:"publishedAt"`
+	Destination *string             `json:"destination,omitempty"`
+	Routing     *policy.LinkRouting `json:"routing,omitempty"`
+	Revision    int64               `json:"revision"`
+	PublishedAt time.Time           `json:"publishedAt"`
 }
 
 func (s *Store) History(ctx context.Context, id string, link bool) ([]History, error) {
@@ -145,7 +147,11 @@ func (s *Store) History(ctx context.Context, id string, link bool) ([]History, e
 	if link {
 		table, key = "link_history", "link_id"
 	}
-	rows, err := s.DB.Query(ctx, "SELECT revision,published_at FROM "+table+" WHERE "+key+"=$1 ORDER BY revision DESC LIMIT 100", id)
+	columns := "revision,published_at"
+	if link {
+		columns += ",destination,routing"
+	}
+	rows, err := s.DB.Query(ctx, "SELECT "+columns+" FROM "+table+" WHERE "+key+"=$1 ORDER BY revision DESC LIMIT 100", id)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +159,11 @@ func (s *Store) History(ctx context.Context, id string, link bool) ([]History, e
 	out := []History{}
 	for rows.Next() {
 		var h History
-		if err = rows.Scan(&h.Revision, &h.PublishedAt); err != nil {
+		fields := []any{&h.Revision, &h.PublishedAt}
+		if link {
+			fields = append(fields, &h.Destination, &h.Routing)
+		}
+		if err = rows.Scan(fields...); err != nil {
 			return nil, err
 		}
 		out = append(out, h)
@@ -328,9 +338,12 @@ func (s *Store) PublishLink(ctx context.Context, id string, expected, target int
 	if err != nil {
 		return result, err
 	}
-	l, err := scanLink(tx.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1 FOR UPDATE", id))
+	l, err := scanLink(tx.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1 AND deleted_at IS NULL FOR UPDATE", id))
 	if err != nil {
 		return result, err
+	}
+	if l.Disabled {
+		return result, ErrPrerequisite
 	}
 	if l.Revision != expected {
 		return result, ErrConflict
@@ -372,7 +385,7 @@ func (s *Store) PublishLink(ctx context.Context, id string, expected, target int
 		}
 	}
 	result.Revision = l.Revision + 1
-	if _, err = tx.Exec(ctx, "UPDATE links SET state='published',destination=$2,draft_destination=NULL,routing=$4,draft_routing=NULL,revision=$3 WHERE id=$1", id, destination, result.Revision, routing); err != nil {
+	if _, err = tx.Exec(ctx, "UPDATE links SET published_revision=$3,state='published',destination=$2,draft_destination=NULL,routing=$4,draft_routing=NULL,revision=$3 WHERE id=$1", id, destination, result.Revision, routing); err != nil {
 		return result, err
 	}
 	if _, err = tx.Exec(ctx, "INSERT INTO link_history(link_id,revision,destination,routing) VALUES($1,$2,$3,$4)", id, result.Revision, destination, routing); err != nil {
@@ -422,7 +435,7 @@ func (s *Store) Simulate(ctx context.Context, link string, signals policy.Signal
 		return policy.Decision{}, err
 	}
 	defer tx.Rollback(ctx)
-	l, err := scanLink(tx.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1", link))
+	l, err := scanLink(tx.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1 AND deleted_at IS NULL", link))
 	if err != nil {
 		return policy.Decision{}, err
 	}

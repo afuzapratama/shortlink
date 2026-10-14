@@ -158,7 +158,7 @@ func (s *Store) Opening(ctx context.Context, a Agent, slug string) (string, bool
 	}
 	var published bool
 	if slug != "" {
-		err = s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND slug=$2 AND state='published')", a.DomainID, slug).Scan(&published)
+		err = s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND slug=$2 AND state='published' AND NOT disabled AND deleted_at IS NULL)", a.DomainID, slug).Scan(&published)
 	}
 	return d.OpeningURL, published, err
 }

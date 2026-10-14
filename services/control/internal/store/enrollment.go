@@ -268,7 +268,7 @@ func saveSnapshot(ctx context.Context, tx pgx.Tx, domain string, seed []byte) er
 		}
 	}
 	snapshot := Snapshot{Revision: d.DesiredRevision, LeaseExpiresAt: time.Now().UTC().Add(24 * time.Hour), Domain: d, Links: []Link{}, Rules: []policy.ScopedRule{}}
-	rows, err := tx.Query(ctx, "SELECT "+linkColumns+" FROM links WHERE domain_id=$1 AND state='published' ORDER BY id", domain)
+	rows, err := tx.Query(ctx, "SELECT "+linkColumns+" FROM links WHERE domain_id=$1 AND state='published' AND NOT disabled AND deleted_at IS NULL ORDER BY id", domain)
 	if err != nil {
 		return err
 	}
@@ -423,7 +423,7 @@ func (s *Store) Heartbeat(ctx context.Context, a Agent, revision int64, version 
 	}
 	if q.RoutingVersion < 4 {
 		var requires bool
-		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND state='published' AND routing->>'proxyCheck'='true' AND routing ? 'ipQualityBlock')", a.DomainID).Scan(&requires); err != nil {
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND state='published' AND NOT disabled AND deleted_at IS NULL AND routing->>'proxyCheck'='true' AND routing ? 'ipQualityBlock')", a.DomainID).Scan(&requires); err != nil {
 			return err
 		}
 		if requires {
@@ -441,7 +441,7 @@ func (s *Store) Heartbeat(ctx context.Context, a Agent, revision int64, version 
 	}
 	if q.RoutingVersion < 2 {
 		var requires bool
-		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND state='published' AND routing IS NOT NULL AND ($2=0 OR routing->>'proxyCheck'='true'))", a.DomainID, q.RoutingVersion).Scan(&requires); err != nil {
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND state='published' AND NOT disabled AND deleted_at IS NULL AND routing IS NOT NULL AND ($2=0 OR routing->>'proxyCheck'='true'))", a.DomainID, q.RoutingVersion).Scan(&requires); err != nil {
 			return err
 		}
 		if requires {

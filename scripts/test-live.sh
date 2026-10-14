@@ -42,8 +42,10 @@ kill -0 "$control_test_pid" || { echo 'Test API exited before browser tests.' >&
 # Browser suites share one private owner. Reset only disposable test auth counters
 # between groups; keep the production login limiter unchanged.
 for browser_project in desktop mobile; do
-  npx playwright test --config playwright.live.config.ts --project "$browser_project" --grep-invert 'traffic uses real empty data|api protection persists centrally|php packages download|owner 2FA|proxycheck settings|domain opening'
+  npx playwright test --config playwright.live.config.ts --project "$browser_project" --grep-invert 'shortlink status tabs|traffic uses real empty data|api protection persists centrally|php packages download|owner 2FA|proxycheck settings|domain opening'
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'TRUNCATE auth_buckets' >/dev/null
   npx playwright test --config playwright.live.config.ts --project "$browser_project" --grep 'traffic uses real empty data|api protection persists centrally|php packages download|owner 2FA|proxycheck settings|domain opening'
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'TRUNCATE auth_buckets' >/dev/null
+  npx playwright test --config playwright.live.config.ts --project "$browser_project" --grep 'shortlink status tabs'
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'TRUNCATE auth_buckets' >/dev/null
 done

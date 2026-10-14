@@ -204,3 +204,22 @@ Validasi: suite backend race, pengujian khusus konfirmasi/CSRF/credential,
 retensi traffic dan isolasi domain lain, 30 pengujian browser desktop/mobile,
 penghapusan domain sementara di staging, serta pemeriksaan UI production
 secara baca saja. Domain production yang ada tidak dihapus saat pengujian.
+
+### Status dan penghapusan shortlink
+
+- `PATCH /v1/admin/links/{linkId}/status`: JSON `disabled` boolean dan
+  `expectedRevision`. Nonaktif/aktif hanya untuk link yang pernah dipublish.
+- `DELETE /v1/admin/links/{linkId}`: JSON `slug` persis dan `expectedRevision`.
+- Kedua endpoint memerlukan owner, Origin dan CSRF, mengembalikan PublishResult
+  dengan domainRevisions dan pendingAgentIds; revision yang berubah menghasilkan 409.
+- Link mencakup createdAt, disabled dan publishedRevision. Edit draft mengubah
+  revision, tetapi publishedRevision hanya berubah pada publish/pemulihan isi.
+- History shortlink menyertakan destination/routing untuk pemeriksaan sebelum restore.
+- Snapshot, proxy lookup dan URL opening hanya mengenali link terbit yang aktif
+  dan belum dihapus. Tombstone tidak muncul di GET/list link, tetapi event Go
+  lama masih dapat di-ingest dan dideduplikasi dengan binding historis.
+
+Migrasi 016 diuji pada clone database production: fingerprint kolom lama identik
+sebelum/sesudah; publishedRevision sesuai riwayat. Fingerprint link production
+juga identik pada pemasangan migrasi. Backend race, 32 uji live desktop/mobile,
+32 uji prototype serta smoke staging/production lulus.

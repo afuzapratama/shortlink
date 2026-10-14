@@ -93,7 +93,7 @@ test('published link destination stays active until republish and URL identity i
   await row.getByRole('button',{name:'Edit tujuan launch'}).click();
   await expect(page.getByLabel('Domain',{exact:true})).toBeDisabled();await expect(page.getByLabel('Slug',{exact:true})).toBeDisabled();
   await fillDestination(page,'https://nusa.example/corrected');await page.getByRole('button',{name:'Simpan draft link'}).click();
-  await expect(row).toContainText('Published: https://nusa.example/launch');await expect(row).toContainText('Draft: https://nusa.example/corrected');await expect(row).toContainText('12.480');
+  await expect(row).toContainText('Tujuan terbit: https://nusa.example/launch');await expect(row).toContainText('Draft tujuan: https://nusa.example/corrected');await expect(row).toContainText('12.480');
   await navigate(page,'Aturan Traffic');await page.getByLabel('Perangkat',{exact:true}).selectOption('desktop');await page.getByRole('button',{name:'Jalankan simulasi'}).click();
   await expect(page.locator('.simulation-result')).toContainText('https://nusa.example/launch');
   await navigate(page,'Shortlink');await page.getByRole('row').filter({hasText:'go.nusa.example/launch'}).getByRole('button',{name:'Publish demo'}).click();

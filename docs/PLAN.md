@@ -486,3 +486,26 @@ Metadata lama opsional agar antrean/event agent lama tetap dapat diterima.
 IP memakai sumber yang telah ditentukan melalui konfigurasi trusted proxy.
 Retensi log mentah tetap berlaku; agregat tidak menyimpan IP. PHP memakai
 klasifikasi pusat; Go memerlukan rilis v0.20.5 atau lebih baru untuk metadata ini.
+
+### Pengelolaan shortlink (14 Oktober 2026)
+
+Dashboard mengurutkan shortlink berdasarkan createdAt terbaru, dengan tab Semua,
+Belum publish, Aktif, dan Nonaktif. Link baru membuka tab draft; perubahan status
+membuka tab yang sesuai. Pencarian mencakup domain, slug, tujuan dan fallback.
+Versi isi yang terbit (publishedRevision) dipisahkan dari revision untuk edit
+optimistis. Draft, toggle status, serta antrean sinkronisasi tidak mengubah label
+versi isi terbit. Riwayat menunjukkan versi yang terbit, tujuan dan fallback;
+pemulihan versi lain membutuhkan konfirmasi dan mengganti draft sebagai versi baru.
+
+Nonaktifkan mengeluarkan link dari snapshot/routing; aktifkan kembali memakai
+isi terakhir terbit, tanpa mempublish draft. Publish/rollback saat link nonaktif
+harus didahului aktivasi. Link nonaktif atau dihapus mengikuti URL pembuka domain,
+atau 503 jika URL pembuka kosong, setelah agent menerima pembaruan. Agent offline
+masih dapat memakai snapshot lama selama lease berlaku.
+
+Hapus membutuhkan slug dan revision. Tombstone internal mempertahankan binding
+untuk event Go yang terlambat, agar batch antrean link lain tidak tersangkut;
+link dihilangkan dari daftar/routing dan slug bisa didaftarkan dengan ID baru.
+Traffic historis dan konfigurasi historis dipertahankan. Tidak ada pemulihan
+link terhapus dari dashboard. Migrasi 016 mengisi versi terbit dari link_history
+serta memakai indeks slug unik hanya untuk link yang belum dihapus.

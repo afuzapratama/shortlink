@@ -1105,6 +1105,71 @@
             }
           }
         ]
+      },
+      "delete": {
+        "operationId": "deleteShortlink",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "slug",
+                  "expectedRevision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration applied; local agents may still await synchronization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/admin/links/{linkId}/publish": {
@@ -4246,6 +4311,72 @@
           }
         }
       }
+    },
+    "/v1/admin/links/{linkId}/status": {
+      "patch": {
+        "operationId": "setShortlinkStatus",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "disabled": {
+                    "type": "boolean"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "disabled",
+                  "expectedRevision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration applied; local agents may still await synchronization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error; see error codes and authorization rules in CONTRACTS.md.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4479,6 +4610,19 @@
           },
           "draftRouting": {
             "$ref": "#/components/schemas/LinkRouting"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "publishedRevision": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Last published content version; remains unchanged on draft edits or enable/disable."
           }
         },
         "required": [
@@ -6188,6 +6332,14 @@
             "items": {
               "$ref": "#/components/schemas/HistoryEntry"
             }
+          },
+          "destination": {
+            "type": "string",
+            "format": "uri",
+            "description": "Published destination for shortlink history only."
+          },
+          "routing": {
+            "$ref": "#/components/schemas/LinkRouting"
           }
         },
         "required": [

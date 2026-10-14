@@ -128,7 +128,7 @@ func (s *Store) ReserveProxyQuery(ctx context.Context, revision int64) (bool, er
 
 func (s *Store) LinkUsesProxy(ctx context.Context, domain, slug string) (bool, error) {
 	var use bool
-	err := s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND slug=$2 AND state='published' AND routing->>'proxyCheck'='true')", domain, slug).Scan(&use)
+	err := s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM links WHERE domain_id=$1 AND slug=$2 AND state='published' AND NOT disabled AND deleted_at IS NULL AND routing->>'proxyCheck'='true')", domain, slug).Scan(&use)
 	return use, err
 }
 

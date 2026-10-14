@@ -217,12 +217,53 @@ func (s *Server) management(w http.ResponseWriter, r *http.Request, actor string
 				return
 			}
 			s.json(w, 200, l)
+		case http.MethodDelete:
+			var input struct {
+				Slug             string `json:"slug"`
+				ExpectedRevision *int64 `json:"expectedRevision"`
+			}
+			if !s.decode(w, r, &input) {
+				return
+			}
+			if input.Slug == "" || input.ExpectedRevision == nil || *input.ExpectedRevision < 0 {
+				s.fail(w, 422, "validation_failed", "Slug and revision required.")
+				return
+			}
+			result, err := s.store.ChangeLinkLifecycle(r.Context(), parts[1], *input.ExpectedRevision, input.Slug, nil, actor)
+			if err != nil {
+				s.policyFailure(w, err)
+				return
+			}
+			s.json(w, 200, result)
 		case http.MethodPatch:
 			s.writeLink(w, r, parts[1], actor)
 		default:
-			w.Header().Set("Allow", "GET, PATCH")
+			w.Header().Set("Allow", "GET, PATCH, DELETE")
 			s.fail(w, 405, "method_not_allowed", "Method not allowed.")
 		}
+		return
+	}
+	if len(parts) == 3 && parts[0] == "links" && parts[2] == "status" {
+		if !s.method(w, r, http.MethodPatch) {
+			return
+		}
+		var input struct {
+			Disabled         *bool  `json:"disabled"`
+			ExpectedRevision *int64 `json:"expectedRevision"`
+		}
+		if !s.decode(w, r, &input) {
+			return
+		}
+		if input.Disabled == nil || input.ExpectedRevision == nil || *input.ExpectedRevision < 0 {
+			s.fail(w, 422, "validation_failed", "Status and revision required.")
+			return
+		}
+		result, err := s.store.ChangeLinkLifecycle(r.Context(), parts[1], *input.ExpectedRevision, "", input.Disabled, actor)
+		if err != nil {
+			s.policyFailure(w, err)
+			return
+		}
+		s.json(w, 200, result)
 		return
 	}
 	s.fail(w, 501, "not_implemented", "This management operation is not implemented yet.")

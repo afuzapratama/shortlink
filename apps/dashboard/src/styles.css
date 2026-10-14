@@ -24,3 +24,6 @@
 .audit-table thead th{position:sticky;top:0;background:var(--surface,#fff);z-index:1}
 .audit-table td:first-child{white-space:nowrap}
 @media(max-width:1000px){.domain-tools-grid{grid-template-columns:minmax(0,1fr)}}
+
+.link-status-tabs{flex-wrap:wrap;margin-bottom:16px}
+.link-row-actions{flex-wrap:wrap;min-width:240px;max-width:330px}

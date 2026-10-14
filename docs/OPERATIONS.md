@@ -203,3 +203,15 @@ Simpan snapshot runner sebelum long test dan jangan mengubah script aktif. B20 b
 ## B19 — lingkungan publik mulai 11 Oktober 2026
 
 Deployment pusat native ARM/aaPanel dan HTTPS sudah berjalan, browser login desktop/mobile lulus. Pengujian VPS ARM bersih dan PHP aaPanel/cPanel sedang berjalan; hasil serta gate yang belum selesai mengikuti [PUBLIC_TESTS_B19.md](PUBLIC_TESTS_B19.md). Ini melengkapi gate B19 nyata sebelum penutupan deployment/B20.
+
+### Revisi status shortlink
+
+Migrasi 016 menambah disabled/deleted_at/published_revision. Backup database,
+binary pusat dan index dashboard disimpan di direktori private
+`/var/backups/shortlink-production/link-lifecycle-*`. Clone migrasi telah diuji
+sebelum production. Jangan rollback ke backend yang belum memahami disabled
+atau deleted_at setelah fitur dipakai: backend lama dapat mengaktifkan kembali
+link yang telah dimatikan/dihapus. Rollback dashboard dapat memakai index lama
+beserta asetnya. Data tombol hapus link dipertahankan sebagai tombstone untuk
+binding event yang terlambat; penghapusan domain tetap menghapus seluruh link
+beserta tombstone dalam transaksi domain.

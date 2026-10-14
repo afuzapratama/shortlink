@@ -36,20 +36,23 @@ type Domain struct {
 	Capabilities    Capabilities `json:"capabilities"`
 }
 type Link struct {
-	Routing          *policy.LinkRouting `json:"routing,omitempty"`
-	DraftRouting     *policy.LinkRouting `json:"draftRouting,omitempty"`
-	ID               string              `json:"id"`
-	DomainID         string              `json:"domainId"`
-	Slug             string              `json:"slug"`
-	Destination      string              `json:"destination"`
-	DraftDestination *string             `json:"draftDestination,omitempty"`
-	State            string              `json:"state"`
-	Revision         int64               `json:"revision"`
-	Clicks           int64               `json:"clicks"`
+	CreatedAt         time.Time           `json:"createdAt"`
+	Disabled          bool                `json:"disabled"`
+	PublishedRevision *int64              `json:"publishedRevision"`
+	Routing           *policy.LinkRouting `json:"routing,omitempty"`
+	DraftRouting      *policy.LinkRouting `json:"draftRouting,omitempty"`
+	ID                string              `json:"id"`
+	DomainID          string              `json:"domainId"`
+	Slug              string              `json:"slug"`
+	Destination       string              `json:"destination"`
+	DraftDestination  *string             `json:"draftDestination,omitempty"`
+	State             string              `json:"state"`
+	Revision          int64               `json:"revision"`
+	Clicks            int64               `json:"clicks"`
 }
 
 const domainColumns = "id,hostname,mode,CASE WHEN readiness='ready' AND ((mode='api' AND (probe_checked_at IS NULL OR probe_checked_at<now()-interval '5 minutes' OR applied_revision IS DISTINCT FROM desired_revision)) OR (mode='local' AND (last_seen_at IS NULL OR last_seen_at<now()-interval '90 seconds' OR applied_revision IS DISTINCT FROM desired_revision OR probe_checked_at IS NULL OR probe_checked_at<now()-interval '5 minutes'))) THEN 'attention' ELSE readiness END,CASE WHEN mode='local' AND connection='online' AND last_seen_at<now()-interval '90 seconds' THEN 'offline' WHEN mode='api' AND connection='online' AND last_seen_at<now()-interval '90 seconds' THEN 'idle' ELSE connection END,desired_revision,applied_revision,last_seen_at,opening_url"
-const linkColumns = "id,domain_id,slug,destination,draft_destination,state,revision,clicks,routing,draft_routing"
+const linkColumns = "id,domain_id,slug,destination,draft_destination,state,revision,clicks,routing,draft_routing,created_at,disabled,published_revision"
 
 func scanDomain(row pgx.Row) (Domain, error) {
 	var d Domain
@@ -59,7 +62,7 @@ func scanDomain(row pgx.Row) (Domain, error) {
 func scanLink(row pgx.Row) (Link, error) {
 	var l Link
 	var routing, draft []byte
-	err := row.Scan(&l.ID, &l.DomainID, &l.Slug, &l.Destination, &l.DraftDestination, &l.State, &l.Revision, &l.Clicks, &routing, &draft)
+	err := row.Scan(&l.ID, &l.DomainID, &l.Slug, &l.Destination, &l.DraftDestination, &l.State, &l.Revision, &l.Clicks, &routing, &draft, &l.CreatedAt, &l.Disabled, &l.PublishedRevision)
 	if err == nil && routing != nil {
 		err = json.Unmarshal(routing, &l.Routing)
 	}
@@ -142,10 +145,10 @@ func (s *Store) CreateLinkRouting(ctx context.Context, id, domain, slug, destina
 	return l, tx.Commit(ctx)
 }
 func (s *Store) Link(ctx context.Context, id string) (Link, error) {
-	return scanLink(s.DB.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1", id))
+	return scanLink(s.DB.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1 AND deleted_at IS NULL", id))
 }
 func (s *Store) Links(ctx context.Context, after, domain string, limit int) ([]Link, error) {
-	rows, err := s.DB.Query(ctx, "SELECT "+linkColumns+" FROM links WHERE id>$1 AND ($2='' OR domain_id=$2) ORDER BY id LIMIT $3", after, domain, limit)
+	rows, err := s.DB.Query(ctx, "SELECT "+linkColumns+" FROM links WHERE deleted_at IS NULL AND id>$1 AND ($2='' OR domain_id=$2) ORDER BY id LIMIT $3", after, domain, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +175,7 @@ func (s *Store) UpdateLinkRouting(ctx context.Context, id, domain, slug, destina
 	if err = publishLock(ctx, tx); err != nil {
 		return Link{}, err
 	}
-	old, err := scanLink(tx.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1 FOR UPDATE", id))
+	old, err := scanLink(tx.QueryRow(ctx, "SELECT "+linkColumns+" FROM links WHERE id=$1 AND deleted_at IS NULL FOR UPDATE", id))
 	if err != nil {
 		return old, err
 	}
